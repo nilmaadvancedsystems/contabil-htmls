@@ -152,9 +152,10 @@
   /* ---------------------------------- stepper ---------------------------------- */
   .stepper{position:sticky;top:24px;}
   .stepper ol{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:0;}
-  .step-item{display:flex;gap:12px;position:relative;padding-bottom:30px;}
+  .step-item{display:flex;gap:12px;position:relative;padding-bottom:30px;cursor:pointer;}
   .step-item:last-child{padding-bottom:0;}
   .step-item .rail{display:flex;flex-direction:column;align-items:center;flex:none;}
+  .step-item:hover .step-label{color:var(--ink);}
   .step-dot{
     width:30px;height:30px;border-radius:50%;flex:none;
     display:flex;align-items:center;justify-content:center;
@@ -738,6 +739,7 @@ if(xr(e,"index.xml"))throw new Error("Unsupported NUMBERS 09 file");throw new Er
   /* ============================== state ============================== */
   var state = {
     step: 1,
+    maxStep: 1,
     card: { files:[], months:[], transactions:[] },
     sales: { file:null, months:null, entries:null },
     reconcileMonths: null, // null = use every card month; array = restrict output to these months only
@@ -775,8 +777,17 @@ if(xr(e,"index.xml"))throw new Error("Unsupported NUMBERS 09 file");throw new Er
   ];
   var stepperList = document.getElementById('stepperList');
   stepperList.innerHTML = STEPS.map(function(s){
-    return '<li class="step-item" id="stepitem-'+s.n+'"><div class="rail"><div class="step-dot" id="stepdot-'+s.n+'">'+s.n+'</div>'+(s.n<STEPS.length?'<div class="line"></div>':'')+'</div><div class="step-body"><p class="step-label">'+s.label+'</p><p class="step-sub">'+s.sub+'</p></div></li>';
+    return '<li class="step-item" id="stepitem-'+s.n+'" data-step-n="'+s.n+'"><div class="rail"><div class="step-dot" id="stepdot-'+s.n+'">'+s.n+'</div>'+(s.n<STEPS.length?'<div class="line"></div>':'')+'</div><div class="step-body"><p class="step-label">'+s.label+'</p><p class="step-sub">'+s.sub+'</p></div></li>';
   }).join('');
+
+  stepperList.addEventListener('click', function(e){
+    var item = e.target.closest('.step-item');
+    if(!item) return;
+    var n = Number(item.dataset.stepN);
+    if(n === state.step) return;
+    if(n <= state.maxStep){ goStep(n); }
+    else { toast('Preencha os passos anteriores'); }
+  });
 
   function renderStepper(){
     STEPS.forEach(function(s){
@@ -802,6 +813,7 @@ if(xr(e,"index.xml"))throw new Error("Unsupported NUMBERS 09 file");throw new Er
 
   function goStep(n){
     state.step = n;
+    state.maxStep = Math.max(state.maxStep, n);
     document.querySelectorAll('.step-section').forEach(function(sec){
       sec.classList.toggle('active', sec.dataset.step === String(n));
     });
@@ -1553,6 +1565,7 @@ if(xr(e,"index.xml"))throw new Error("Unsupported NUMBERS 09 file");throw new Er
     clearInterval(progressTimer);
     state = {
       step:1,
+      maxStep:1,
       card:{ files:[], months:[], transactions:[] },
       sales:{ file:null, months:null, entries:null },
       reconcileMonths:null,
