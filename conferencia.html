@@ -850,6 +850,18 @@
   /* fora do padrão (serviços): conferido igual Naturezas */
   #natListaServ tr.feito td{background:none;}
   #natListaServ tr.feito.anima td:not(:first-child){animation:ofuscar .45s ease-out .1s both;}
+
+  /* verificar por conta: caixa de pendências */
+  .vc-pend{margin-top:16px;border:1px solid var(--border);border-radius:6px;overflow:hidden;}
+  .vc-pend-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 16px;border-bottom:1px solid var(--border);background:var(--surface-2);}
+  .vc-pend-head h3{margin:0;font-size:15px;}
+  .vc-secao{padding:14px 16px 16px;}
+  .vc-secao+.vc-secao{border-top:1px solid var(--border);}
+  .vc-secao h4{font-size:14px;font-weight:600;margin:0 0 2px;}
+  .vc-secao .sub{margin-bottom:10px;}
+  .btn.vc-conferido-on{background:var(--danger);border-color:var(--danger);color:#FFFFFF;}
+  .btn.vc-conferido-on:hover{filter:brightness(1.08);}
+  .btn.vc-conferido-on svg{width:14px;height:14px;}
 </style>
 </head>
 <body>
@@ -1212,7 +1224,7 @@
       <section id="view-conferencia" hidden>
         <button class="btn btn-ghost btn-sm" id="btVoltarMov" type="button" style="margin-bottom:14px;padding-left:4px">&larr; Voltar para Movimento</button>
 
-        <div class="card">
+        <div class="card" id="vcFormCard">
           <h3>Conferir conta</h3>
           <div id="vcSemPlano"></div>
           <div class="field">
@@ -1248,6 +1260,8 @@
           <div id="vcResultado"></div>
           <div class="btn-row" style="justify-content:flex-end;">
             <button class="btn btn-outline" id="vcBtCsv" type="button">Baixar resultado</button>
+            <button class="btn btn-primary" id="vcBtReimportar" type="button">Reimportar</button>
+            <button class="btn btn-primary" id="vcBtOk" type="button" hidden>Ok</button>
           </div>
         </div>
       </section>
@@ -1271,7 +1285,7 @@
 (function(){
 "use strict";
 
-var APP_VERSION='beta 0.1.13';
+var APP_VERSION='beta 0.1.14';
 document.querySelectorAll('#verLogin,#verApp,#verDrawer').forEach(function(el){el.textContent='Versão: '+APP_VERSION;});
 
 /* ============================== ícones ============================== */
@@ -1449,7 +1463,7 @@ function limparNomeConta(nome){
   while(reValorNaFrente.test(s))s=s.replace(reValorNaFrente,'');
   return s;
 }
-function norm(e){e.contas=(e.contas||[]).map(function(c){if(c&&c.nome)c.nome=limparNomeConta(c.nome);return c;});e.dp=e.dp||[];e.entradas=e.entradas||[];e.saidas=e.saidas||[];e.divResolvidos=e.divResolvidos||[];e.confMarcados=e.confMarcados||[];e.confHistorico=e.confHistorico||[];e.naturezaConta=e.naturezaConta||{};e.confAutoMarcados=e.confAutoMarcados||[];e.confAutoRecusados=e.confAutoRecusados||[];e.importHistorico=e.importHistorico||[];e.servPrestados=e.servPrestados||[];e.servTomados=e.servTomados||[];e.servCat=e.servCat||{};Object.keys(e.servCat).forEach(function(t){var m=e.servCat[t]||{};Object.keys(m).forEach(function(k){var x=m[k];if(x&&x.conta){var ck='serv|'+t+'|'+(x.cat==='geral'?'*':'cat:'+x.cat);if(!e.naturezaConta[ck])e.naturezaConta[ck]=[x.conta];delete x.conta;}});});e.vendaVista=e.vendaVista||{ativo:false,lancs:{}};if(!e.vendaVista.lancs)e.vendaVista.lancs={};delete e.vendaVista.lanc;delete e.servPart;delete e.lancConfig;delete e.lancAuto;Object.keys(e.naturezaConta).forEach(function(k){if(/^serv\|(tomados|prestados)\|/.test(k)&&!/\|(\*|cat:[a-z]+)$/.test(k))delete e.naturezaConta[k];});if(e.autoLimparBalancete===undefined)e.autoLimparBalancete=true;if(e.avisoBalPendente===undefined)delete e.avisoBalPendente;if(e.balanceteAssinatura===undefined){delete e.balanceteAssinatura;delete e.balanceteAssinaturaTs;}return e;}
+function norm(e){e.contas=(e.contas||[]).map(function(c){if(c&&c.nome)c.nome=limparNomeConta(c.nome);return c;});e.dp=e.dp||[];e.entradas=e.entradas||[];e.saidas=e.saidas||[];e.divResolvidos=e.divResolvidos||[];e.confMarcados=e.confMarcados||[];e.confHistorico=e.confHistorico||[];e.naturezaConta=e.naturezaConta||{};e.confAutoMarcados=e.confAutoMarcados||[];e.confAutoRecusados=e.confAutoRecusados||[];e.importHistorico=e.importHistorico||[];e.servPrestados=e.servPrestados||[];e.servTomados=e.servTomados||[];e.servCat=e.servCat||{};Object.keys(e.servCat).forEach(function(t){var m=e.servCat[t]||{};Object.keys(m).forEach(function(k){var x=m[k];if(x&&x.conta){var ck='serv|'+t+'|'+(x.cat==='geral'?'*':'cat:'+x.cat);if(!e.naturezaConta[ck])e.naturezaConta[ck]=[x.conta];delete x.conta;}});});e.verifConta=e.verifConta||{};e.vendaVista=e.vendaVista||{ativo:false,lancs:{}};if(!e.vendaVista.lancs)e.vendaVista.lancs={};delete e.vendaVista.lanc;delete e.servPart;delete e.lancConfig;delete e.lancAuto;Object.keys(e.naturezaConta).forEach(function(k){if(/^serv\|(tomados|prestados)\|/.test(k)&&!/\|(\*|cat:[a-z]+)$/.test(k))delete e.naturezaConta[k];});if(e.autoLimparBalancete===undefined)e.autoLimparBalancete=true;if(e.avisoBalPendente===undefined)delete e.avisoBalPendente;if(e.balanceteAssinatura===undefined){delete e.balanceteAssinatura;delete e.balanceteAssinaturaTs;}return e;}
 
 var CLIENTES=[[462,"3M EMPREENDIMENTOS FLORESTAIS LTDA","Presumido"],[356,"A7 COMERCIO DE VEICULOS LTDA","Presumido"],[515,"A7 MOBILE LTDA","Simples"],[591,"AAP INTERMEDIACOES LTDA","Simples"],[450,"ACO FORTE METAIS LTDA","Simples"],[371,"ACSSP ADM PROMOCAO DE VENDAS LTDA","Simples"],[205,"ADEMILSON OLIVEIRA CRUZ","Simples"],[66,"ADERLEI DOS SANTOS & CIA LTDA","Presumido"],[541,"AGRIENERGY FERTIAGRO LTDA","Simples"],[533,"ALINE CARVALHO FELIX MORONI","Domésticas"],[279,"ALMEIDA & SOUZA PRODUTOS ALIMENTICIOS LTDA","Simples"],[265,"ALTA FLORESTA TRANSPORTES LTDA","Simples"],[600,"ALVES CRUZ ACADEMIA PREMIUM LTDA","Simples"],[503,"AMPLA SERVICOS DE SAUDE LTDA","Simples"],[493,"ANTONIA'S LTDA","Simples"],[174,"ARMARINHO E PAPELARIA TAIOBEIRAS LTDA","Simples"],[537,"ARTEFATO ACABAMENTOS LTDA","Simples"],[488,"ASSOCIACAO BENEFICENTE GALPAO SOLIDARIO DE LAGOA SECA","Isentas"],[536,"ASSOCIAÇÃO COMERCIAL E EMPRESARIAL DE TAIOBEIRAS","Isentas"],[342,"ASSOCIACAO DE MULHERES EM PROL DO DESENVOLVIMENTO DE RI","Isentas"],[394,"AURORA REFLORESTAMENTO E TRANSPORTES LTDA","Simples"],[395,"AURORA REFLORESTAMENTO E TRANSPORTES LTDA - FILIAL 02","Simples"],[432,"AURORA REFLORESTAMENTO E TRANSPORTES LTDA - FILIAL 03","Simples"],[231,"AUTO GIRO PECAS E ACESSORIOS LTDA","Simples"],[481,"B LIMA SERVICOS MEDICOS LTDA","Simples"],[470,"BALAO MAGICO KIDS LTDA","Simples"],[581,"BC SAUDE LTDA","Simples"],[575,"BDV LTDA","Presumido"],[86,"BIBOKA EMBALAGENS LTDA","Simples"],[599,"BIBOKA EMBALAGENS LTDA - FILIAL","Simples"],[96,"BIG LANCHES DE TAIOBEIRAS LTDA","Simples"],[207,"BMJ SOM AUTOMOTIVO LTDA","Simples"],[79,"BN ELETRODOMESTICOS LTDA","Simples"],[145,"BN ELETRODOMESTICOS LTDA","Simples"],[549,"BOOZE PUB LTDA","Simples"],[250,"BRASAO INDUSTRIA FLORESTAL LTDA","Simples"],[568,"BRAZILIAN COFFEE LTDA","Real"],[413,"BRAZILIAN FORESTRY EMPREENDIMENTOS FLORESTAIS LTDA","Real"],[414,"BRAZILIAN FORESTRY EMPREENDIMENTOS FLORESTAIS LTDA","Real"],[418,"BRAZILIAN FORESTRY EMPREENDIMENTOS FLORESTAIS LTDA - FILIAL 03","Real"],[453,"BRAZILIAN FORESTRY EMPREENDIMENTOS FLORESTAIS LTDA - FILIAL 04","Real"],[526,"C&R ESCOLA DE IDIOMAS LTDA","Simples"],[577,"CAFE RENASCER SPE LTDA","Real"],[494,"CAIXA ESCOLAR JOVITA SECUNDINA REGO","Isentas"],[560,"CAMARA DE DIRIGENTES LOJISTAS DE TAIOBEIRAS","Isentas"],[555,"CARLOS LUCAS MENDES - FAZ UNIÃO","Física"],[226,"CARLOS LUCAS MENDES - FAZ. GAMELEIRA","Física"],[62,"CARLOS LUCAS MENDES - FAZ. TABATINGA","Física"],[228,"CARLOS LUCAS MENDES - SAO JOSE","Física"],[467,"CATVAN TECNOLOGIA LTDA","Simples"],[101,"CAULIM ALVES DE SOUZA LTDA","Simples"],[455,"CENTRO DE ODONTOLOGIA E SAUDE DE TAIOBEIRAS LTDA","Simples"],[463,"CENTRO DE ODONTOLOGIA ESTETICA LTDA","Simples"],[15,"CERAMICA FORTALEZA LTDA","Simples"],[501,"CERAMICA FORTALEZA LTDA - FILIAL","Simples"],[81,"CERAMICA MINAS FORTE LTDA","Simples"],[368,"CERAMICA MINAS FORTE LTDA - FILIAL 02","Simples"],[183,"CLEIA CRUZ DE OLIVEIRA - CPF 033.911.646.38","Simples"],[597,"CONSTRU UNIAO MATERIAIS DE CONSTRUCAO LTDA","Simples"],[175,"CONSTRU-G MIRANDA MATERIAIS DE CONSTRUCAO LTDA","Simples"],[552,"CONSTRULAR MATERIAIS DE PINTURA E CONSTRUCAO LTDA","Simples"],[434,"CONSTRUNOVO LTDA","Simples"],[593,"CONSTRUTOP MATERIAIS DE CONSTRUCAO LTDA","Simples"],[468,"CONSTRUTORA E INCORPORADORA OURO VERDE LTDA","Simples"],[540,"CREATIVE COMPANY LTDA","Simples"],[589,"CREATIVE DIGITAL LTDA","Simples"],[286,"CRIATIVA EDUCACAO E TREINAMENTO LTDA","Simples"],[287,"CRIATIVA PRESTACOES DE SERVICOS EDUCACIONAIS LTDA","Simples"],[285,"CRUZ E COELHO SERVICOS MEDICOS LTDA","Simples"],[519,"DARLENE DE FREITAS C VOLPONI LTDA","Simples"],[546,"DERACI JOSE DE OLIVEIRA","Física"],[547,"DERACI JOSE DE OLIVEIRA","Física"],[565,"DJALMA MOREIRA DE AGUIAR","Simples"],[332,"DOMINGA ROSA GOMES 06371828630","Simples"],[10,"DORNAS HAVANA LTDA","Simples"],[510,"DOUGLAS AUTO CENTER LTDA","Simples"],[407,"DUDA HOME DE TAIOBEIRAS LTDA","Simples"],[421,"D´FARMA FARMACIA DE MANIPULACAO LTDA","Simples"],[177,"EDSON FREITAS LIMA","Domésticas"],[578,"ELITE HIDRAULICA E SOLDAS LTDA","Simples"],[606,"EMILLY MARQUES ARQUITETURA LTDA","Simples"],[313,"EMPORIO DAS CARNES LTDA","Simples"],[583,"EMPORIO VERDE DISTRIBUIDORA LTDA","Simples"],[345,"EMPREENDIMENTO OLIVEIRA E COSTA LTDA","Simples"],[584,"EMPREENDIMENTOS IMOBILIARIOS M&A LTDA","Presumido"],[563,"EVANDRO DE CASTRO","Física"],[499,"FARLEN XAVIER SANTOS 36075344896","MEI"],[506,"FAST EMPREENDIMENTOS AERONAUTICO LTDA","Presumido"],[542,"FELIPE ANDRADE ACADEMIA ESPECIALIZADA LTDA","Simples"],[543,"FELIPE ANDRADE ACADEMIA ESPECIALIZADA LTDA","Simples"],[309,"FITO ALIMENTOS LTDA","Simples"],[292,"FITO INDUSTRIA E COMERCIO DE ALIMENTOS LTDA","Presumido"],[137,"FLORENCIO MENDES DE OLIVEIRA","Física"],[179,"FLORENCIO MENDES DE OLIVEIRA","Física"],[23,"FLORENCIO MENDES DE OLIVEIRA LTDA","Simples"],[147,"FLORENCIO MENDES DE OLIVEIRA LTDA - FILIAL 04","Simples"],[396,"FLOROCARV REFLORESTAMENTO E TRANSPORTES LTDA","Simples"],[611,"FRANCIELLE SILVA SANTANA","Domésticas"],[572,"FREEDOM REFORESTING LTDA","Presumido"],[582,"FREEDOM REFORESTING LTDA","Presumido"],[465,"FSS SERVICOS MEDICOS LTDA","Simples"],[291,"G.A.S SAUDE DE DIVISA ALEGRE LTDA","Simples"],[277,"G.A.S SERVICOS LABORATORIAIS LTDA","Simples"],[521,"GALDUS PROJETOS INDUSTRIAIS LTDA","Simples"],[444,"GALPAO VEICULOS E LOCADORA LTDA","Presumido"],[610,"GAS TAIOBEIRAS LTDA","Simples"],[562,"GERLANE ALVES SOARES","Simples"],[525,"GILDO FARIA","Física"],[527,"GL MATERIAIS DE CONSTRUCAO LTDA","Simples"],[553,"GLM ODONTOLOGIA LTDA","Simples"],[448,"GRANMIX COMERCIO DE ALIMENTOS LTDA - FILIAL 02","Simples"],[449,"GRANMIX COMERCIO DE ALIMENTOS LTDA - MATRIZ","Simples"],[83,"GRIFFIN ARTIGOS DO VESTUARIO E ACESSORIOS LTDA","Simples"],[363,"GS EMPREENDIMENTOS COMERCIAIS LTDA","Simples"],[433,"GUGA INDUSTRIA & COMERCIO DE RACAO ANIMAL LTDA","Simples"],[423,"GUGA INDUSTRIA & COMERCIO DE RACAO ANIMAL LTDA","Simples"],[576,"GUIMARAES E SILVA INSTITUTO INTEGRADO LTDA","Simples"],[544,"HELLO NUTRITION COMERCIO DE ALIMENTOS E BEBIDAS LTDA","Simples"],[545,"HELLO NUTRITION COMERCIO DE ALIMENTOS E BEBIDAS LTDA","Simples"],[564,"HELLO NUTRITION COMERCIO DE ALIMENTOS E BEBIDAS LTDA - FILIAL","Simples"],[592,"HERMES REFLORESTAMENTO E TRANSPORTE LTDA","Simples"],[594,"HERMES REFLORESTAMENTO E TRANSPORTE LTDA - FILIAL","Simples"],[598,"IMPERIO DAS PIZZAS TAIOBEIRAS LTDA","Simples"],[393,"INFANCY SERVICOS PEDIATRICOS LTDA","Simples"],[152,"JANIO JOSE DE ALMEIDA","Simples"],[425,"JOELFLOR PEREIRA DA ROCHA - DOMÉSTICA","Domésticas"],[424,"JOELFLOR PEREIRA DA ROCHA - FAZENDA","Física"],[181,"JOSE MENDES FREITAS","Física"],[548,"JOSIEL GOMES ARRUDA SPOSITO E OUTRO","Física"],[412,"KOPEK FORESTRY EMPREENDIMENTOS FLORESTAIS LTDA","Presumido"],[389,"LATORRES DISTRIBUIDORA LTDA","Simples"],[415,"LAVICA EMPREENDIMENTOS FLORESTAIS LTDA","Presumido"],[416,"LAVICA EMPREENDIMENTOS FLORESTAIS LTDA - FILIAL 02","Presumido"],[474,"LC FLORESTAL LTDA","Presumido"],[586,"LC SERVICOS AGRICOLAS E FLORESTAIS LTDA","Simples"],[380,"LEONARDO MENDES MARQUES LTDA","Presumido"],[326,"LEONEL RODRIGUES REPRESENTACOES LTDA","Simples"],[505,"LISA COSTA AME LTDA","Simples"],[601,"LIZZ SHOW'S LTDA","Simples"],[605,"LL CENTRO ESTETICO LTDA","Simples"],[457,"LOCADORA DANUBIO AZUL LTDA","Simples"],[37,"LOTERIAS FREITAS & MENDES LTDA","Simples"],[249,"LOTERIAS TAIOBEIRAS LTDA","Simples"],[580,"LUCAS MENDES FILHO MARQUES SUCUPIRA","Física"],[314,"M A REFLORESTAMENTO E TRANSPORTES LTDA","Simples"],[40,"MADEIREIRA E MARCENARIA MIRANDA LTDA","Simples"],[489,"MARISFRUTAS LTDA","Simples"],[479,"ME ATACADO LTDA","Simples"],[65,"MERCEARIA LAGOA GRANDE LTDA","Simples"],[528,"MIKAEL DOUGLAS A DE OLIVEIRA","Simples"],[411,"MINAS FORESTRY EMPREENDIMENTOS FLORESTAIS LTDA","Presumido"],[477,"MINAS MAIS VARIEDADES LTDA","Simples"],[236,"MINIMERCADO SANTO EXPEDITO LTDA","Simples"],[358,"MITRA TRANSPORTES E SERVICOS LTDA","Presumido"],[359,"MITRA TRANSPORTES E SERVICOS LTDA","Presumido"],[257,"MODELO TRANSPORTES E SERVICOS LTDA","Simples"],[310,"MOR LABORATORIO NUTRICIONAL LTDA","Simples"],[579,"MORONI & XAVIER AUTOPECAS LTDA","Simples"],[585,"MORONI & XAVIER AUTOPECAS LTDA - FILIAL","Simples"],[551,"MURILLO MENDES DE OLIVEIRA","Simples"],[595,"NERES EMPREENDIMENTOS LTDA","Simples"],[284,"NILMA CONTABILIDADE LTDA","Simples"],[514,"OLARIA E TRANSPORTES TK LTDA","Simples"],[604,"OLARIA K&K LTDA","Simples"],[43,"ORGANIZACAO ALVES & ARAUJO CONFECCOES LTDA","Simples"],[381,"ORGANIZACOES FURTADO LTDA","Simples"],[596,"ORGANIZACOES FURTADO LTDA - FILIAL","Simples"],[348,"ORGANIZACOES JG LTDA","Simples"],[388,"ORGANIZACOES PINK BIJOUX LTDA","Simples"],[441,"OURO PRETO REFLORESTAMENTOS LTDA","Presumido"],[408,"OURO VERDE MINERACAO LTDA","Presumido"],[409,"OURO VERDE MINERACAO LTDA - FILIAL 02","Presumido"],[452,"OURO VERDE MINERACAO LTDA - FILIAL 04","Presumido"],[476,"OURO VERDE MINERACAO LTDA - FILIAL 05","Presumido"],[509,"OURO VERDE MINERACAO LTDA - FILIAL 06","Presumido"],[458,"PABLO RAMON MENDES FREITAS","Domésticas"],[191,"PEDRO JORGE SANTOS SOUZA","Física"],[49,"POSTO DE COMBUSTIVEIS ALTA FLORESTA LTDA","Presumido"],[429,"POSTO DE COMBUSTIVEIS ANDRIELE LIMITADA","Presumido"],[237,"POSTO DE COMBUSTIVEIS BERIZAL LTDA","Presumido"],[559,"POSTO DE COMBUSTIVEIS JM JOAO MANOEL II LTDA","Presumido"],[532,"POUSADA, RESTAURANTE E PANIFICADORA JM- JOAO MANOEL LTDA","Simples"],[508,"PRIME ESTETICA AVANCADA LTDA","Simples"],[550,"PRIME FISIOTERAPIA E CONSULTORIOS MEDICOS ESPECIAL","Simples"],[343,"RAIZZ EMPORIO DA SAUDE LTDA","Simples"],[569,"RDS AGREGADOS & LOGISTICA LTDA","Simples"],[307,"REGINALDA PEREIRA DA SILVA SOUSA 14920571690","Simples"],[558,"RENALD C FILHO & CIA LTDA","Simples"],[252,"RENALD DA CRUZ FILHO LIMITADA","Simples"],[50,"ROSA MENDES DE OLIVEIRA CORBELLI LTDA","Simples"],[51,"ROSILENE MARQUES MARTINS","Simples"],[149,"ROSILENE MARQUES MARTINS  - FILIAL","Simples"],[353,"SAMIR LUCAS MENDES","Física"],[573,"SCP-VIVEIRO RENASCER","Presumido"],[311,"SELMA SIMONELLY DA SILVA PEREIRA 84343540634","MEI"],[538,"SENA PARTICIPACOES LTDA","Simples"],[54,"SERRALHERIA OURO VERDE LTDA","Simples"],[347,"SILVANDE AUGUSTO MIRANDA","Física"],[366,"SOLUS REFLORESTAMENTO LTDA","Simples"],[561,"SOMA NEGOCIOS E INTERMEDIACOES FINANCEIRAS LTDA","Simples"],[446,"SPIROU CONSULTORIA E INVESTIMENTOS LTDA","Presumido"],[443,"SU SEDUCAO MODA INTIMA LTDA","Simples"],[360,"SUPERMERCADO CENTRAL DE BARREIROS LTDA","Simples"],[80,"TECNOAGRO PROJETOS E CONSULTORIA LTDA","Simples"],[298,"TEOBALDO MENDES DE OLIVEIRA LTDA","Simples"],[299,"TEOBALDO MENDES DE OLIVEIRA LTDA - FILIAL 02","Simples"],[300,"TEOBALDO MENDES DE OLIVEIRA LTDA - FILIAL 03","Simples"],[301,"TEOBALDO MENDES DE OLIVEIRA LTDA - FILIAL 04","Simples"],[496,"TIAGO SANTOS DE SOUZA","Simples"],[590,"TORIBA TECNOLOGIA E GESTAO EMPRESARIAL LTDA","Simples"],[58,"TORNEARIA VOLPONI INDUSTRIA E COMERCIO LTDA","Simples"],[55,"TORRA TORRA LTDA","Simples"],[461,"UNIVERSO CENTRO DE EDUCACAO INFANTIL LTDA","Simples"],[269,"VALDELICE ROCHA ALMEIDA","Domésticas"],[6,"VANDERLEI RUFINO DOS SANTOS","Física"],[362,"VERA LUCIA DE OLIVEIRA","Simples"],[417,"VERA REFLORESTAMENTOS LTDA","Simples"],[492,"VERSATIL LTDA","Simples"],[482,"VICTOR ARAUJO SERVICOS MEDICOS LTDA","Simples"],[232,"VICTOR GOMES ARRUDA SPOSITO","Física"],[511,"VISUAL KIDS LTDA","Simples"],[567,"VIVEIRO RENASCER LTDA","Presumido"],[288,"VOLPONI COMERCIO DE ACESSORIOS LTDA","Simples"],[571,"VOLPONI CONSTRUCOES MECANICAS INDUSTRIA E COMERCIO","Simples"],[289,"VOLPONI INDUSTRIA MECANICA LTDA","Simples"],[367,"VS AGROFLORESTAL LTDA","Presumido"],[486,"VS MEDICINA ESPECIALIZADA LTDA","Simples"],[502,"VSPOSITO SERVICOS MEDICOS LTDA","Simples"],[603,"WB SUSHI LTDA","Simples"],[466,"WR SERVICOS FLORESTAIS LTDA","Presumido"],[485,"XTREME ACADEMIA ESPECIALIZADA LTDA","Simples"],[608,"ZELO AGROINDUSTRIAS LTDA - FILIAL C. SALES","Simples"],[609,"ZELO AGROINDUSTRIAS LTDA - FILIAL SJP","Simples"],[607,"ZELO AGROINDUSTRIAS LTDA - FILIAL TAIOBEIRAS","Simples"],[602,"ZELO AGROINDUSTRIAS LTDA - MATRIZ","Simples"]];
 
@@ -3355,8 +3369,10 @@ function renderCcBalancete(grupos,chaves,tipoF){
         var conferidoManual=comp.naturezas.every(function(k){
           var mk=pk+'||'+k;return emp().confMarcados.indexOf(mk)>-1&&emp().confAutoMarcados.indexOf(mk)<0;
         });
+        var vs=verifEstado(comp.contas[0]);
         situacao=Math.abs(dif)<0.01?'<span class="badge badge-ok">Ok</span><span class="sit-vazio"></span>':
-          (conferidoManual?'<span class="badge badge-conferido" title="Diferença de '+brl(dif)+' — conferido manualmente em Naturezas">Conferido</span>':'<span class="badge badge-bad">'+brl(dif)+'</span>')+'<button type="button" class="icon-btn icon-btn-sm" data-ir-verificar="'+esc(comp.contas[0])+'" title="Revisar esta conta" aria-label="Revisar esta conta">'+svg('fileSearch')+'</button>';
+          vs==='ok'?'<span class="badge badge-ok" title="Diferença de '+brl(dif)+' no balancete lido — o relatório da conta foi conferido sem pendências">Ok</span><span class="sit-vazio"></span>':
+          (conferidoManual||vs==='conferido'?'<span class="badge badge-conferido" title="Diferença de '+brl(dif)+' — conferido manualmente">Conferido</span>':'<span class="badge badge-bad">'+brl(dif)+'</span>')+'<button type="button" class="icon-btn icon-btn-sm" data-ir-verificar="'+esc(comp.contas[0])+'" title="Revisar esta conta" aria-label="Revisar esta conta">'+svg('fileSearch')+'</button>';
       }
       return '<tr><td style="white-space:nowrap"><b>'+esc(comp.tituloContas)+'</b></td>'+
         '<td class="wrap">'+esc(cfops.join(', '))+'</td>'+
@@ -3439,8 +3455,9 @@ function renderAuditoria(){
     var div=h.categoria==='divergencia',marc=h.acao==='marcado';
     var texto=(h.texto||'').replace(RE_PREFIXO_PERIODO,'');
     var podeRemover=marc&&h.origem==='automatico'&&emp().confAutoMarcados.indexOf(h.chave)>-1;
-    linhas.push({ts:h.ts,tipo:div?'Lançamento fora do padrão':'Conferência',
-      acao:div?(marc?'Corrigido':'Reaberto'):(marc?'Marcado':'Desmarcado'),cls:marc?'badge-ok':'badge-neutral',
+    var ver=h.categoria==='verificacao';
+    linhas.push({ts:h.ts,tipo:ver?'Verificar por conta':div?'Lançamento fora do padrão':'Conferência',
+      acao:ver?(marc?(/sem pendências/.test(h.texto||'')?'Ok':'Conferido'):'Desfeito'):div?(marc?'Corrigido':'Reaberto'):(marc?'Marcado':'Desmarcado'),cls:marc?'badge-ok':'badge-neutral',
       detalhe:texto,origem:h.origem==='automatico'?'Automático':'Manual',
       extra:podeRemover?'<button class="btn btn-danger btn-sm" data-hist-remover="'+esc(h.chave)+'" data-hist-texto="'+esc(texto)+'" type="button">Remover</button>':''});
   });
@@ -3544,6 +3561,16 @@ function vcNumerosDoHistorico(txt,serv){
 }
 function vcMostrarResultado(mostrar){
   $('#vcResultadoCard').hidden=!mostrar;
+  $('#vcFormCard').hidden=!!mostrar; // com resultado na tela, a importação sai e fica só o Reimportar
+}
+function verifChave(conta){return periodoKeyCc()+'||'+conta;}
+function verifEstado(conta){return (emp().verifConta||{})[verifChave(conta)]||null;}
+function verifGravar(conta,estado,texto){
+  var m=emp().verifConta=emp().verifConta||{},ch=verifChave(conta),antes=m[ch]||null;
+  if(antes===estado)return;
+  if(estado)m[ch]=estado;else delete m[ch];
+  registrarHist('verif|'+ch,texto,!!estado,'verificacao');
+  save();
 }
 function vcEnter(){
   if(!atual)return;
@@ -3626,11 +3653,12 @@ $('#vcBtImportarRazao').onclick=function(){
       if(!txt.trim()&&v==null)continue;
       linhas.push({txt:txt,data:dt,valor:v==null?0:Math.abs(v)});
     }
-    if(!linhas.length){alerta(info,'Não achei lançamentos nesse arquivo','Confira se o relatório tem uma coluna de histórico ou de valor.');return;}
+    if(!linhas.length){if(vc.reimportando){vc.reimportando=false;toast('Não achei lançamentos nesse arquivo.');}alerta(info,'Não achei lançamentos nesse arquivo','Confira se o relatório tem uma coluna de histórico ou de valor.');return;}
     vc.razaoLinhas=linhas;
     info.innerHTML='<div class="alert" style="border-color:var(--success);background:var(--success-soft);color:var(--success-ink)">'+svg('checkCircle')+
       '<div><p class="alert-title">'+linhas.length+' lançamento(s) lidos do relatório</p></div></div>';
-  }).catch(function(e){alerta(info,'Não deu para ler o arquivo',esc(e.message||''));});
+    if(vc.reimportando){vc.reimportando=false;$('#vcBtConferir').click();}
+  }).catch(function(e){if(vc.reimportando){vc.reimportando=false;toast('Não deu para ler o arquivo.');}alerta(info,'Não deu para ler o arquivo',esc(e.message||''));});
 };
 // o relatório é lido assim que o arquivo é escolhido — o usuário só sobe o arquivo e clica em Conferir
 $('#vcRazaoFile').addEventListener('change',function(){if(this.files[0])$('#vcBtImportarRazao').click();});
@@ -3722,6 +3750,9 @@ $('#vcBtConferir').onclick=function(){
       var somaRazao=vc.razaoLinhas.reduce(function(s,l){return s+l.valor;},0);
       var somaFiscal=alvo.reduce(function(s,n){return s+n.valor;},0);
       vc.resultado={faltando:faltando,duplicada:duplicada,aMais:aMais,somaRazao:somaRazao,somaFiscal:somaFiscal,alvo:alvo,serv:vc.servTipo};
+      var rotConta='Conta '+vc.conta.codigo+' — '+vc.conta.nome;
+      if(!faltando.length&&!duplicada.length&&!aMais.length)verifGravar(vc.conta.codigo,'ok',rotConta+' · relatório sem pendências');
+      else if(verifEstado(vc.conta.codigo)==='ok')verifGravar(vc.conta.codigo,null,rotConta+' · voltou a ter pendências');
       vcRenderResultado();
       vcMostrarResultado(true);
       $('#vcResultadoCard').scrollIntoView({behavior:'smooth',block:'start'});
@@ -3744,40 +3775,62 @@ function vcRenderResultado(){
   var totalizador=somaFaltando-somaDuplicada-somaAMais;
   var sv=r.serv,rotSv=sv?SV[sv].rotulo.toLowerCase():'';
   var catSv=function(n){return catServ(sv,catDoPart(sv,n.nome)).nome;};
+  var qtdPend=r.faltando.length+r.duplicada.length+r.aMais.length,limpo=!qtdPend;
   $('#vcStats').innerHTML=
     '<div class="stat"><p class="stat-label">Relatório da conta</p><p class="stat-value">'+brl(r.somaRazao)+'</p></div>'+
     '<div class="stat"><p class="stat-label">Fiscal ('+(sv?rotSv:'entradas/saídas')+')</p><p class="stat-value">'+brl(r.somaFiscal)+'</p></div>'+
     '<div class="stat'+(Math.abs(r.somaFiscal-r.somaRazao)<0.005?' success':'')+'"><p class="stat-label">Diferença</p><p class="stat-value">'+brl(r.somaFiscal-r.somaRazao)+'</p></div>';
-  var html='<p class="sub">Comparação por número de nota — é uma estimativa, vale conferir os casos que aparecem abaixo.</p>';
-  html+='<div class="card" style="background:var(--surface-2);box-shadow:none;margin:16px 0 0;padding:16px 18px;">'+
-    '<p class="stat-label" style="margin-bottom:8px">Totalizador</p>'+
-    '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;font-size:14px;">'+
-      '<span>Faltando <b class="num" style="color:var(--success-ink)">+ '+brl(somaFaltando)+'</b></span>'+
-      '<span style="color:var(--ink-faint)">−</span>'+
-      '<span>Duplicadas <b class="num" style="color:var(--danger-ink)">'+brl(somaDuplicada)+'</b></span>'+
-      '<span style="color:var(--ink-faint)">−</span>'+
-      '<span>A mais <b class="num" style="color:var(--danger-ink)">'+brl(somaAMais)+'</b></span>'+
-      '<span style="color:var(--ink-faint)">=</span>'+
-      '<span>Diferença <b class="num" style="font-size:16px;color:var(--ink)">'+brl(totalizador)+'</b></span>'+
-    '</div>'+
+  $('#vcBtReimportar').hidden=limpo;$('#vcBtOk').hidden=!limpo;
+  if(limpo){
+    $('#vcResultado').innerHTML='<div class="alert" style="border-color:var(--success);background:var(--success-soft);color:var(--success-ink);margin:16px 0 0">'+svg('checkCircle')+
+      '<div><p class="alert-title">Nenhuma pendência nessa conta</p><p class="alert-text">Todas as notas bateram com o relatório. A conta fica <b>Ok</b> na Conferência.</p></div></div>';
+    return;
+  }
+  // totalizador só com o que tem valor
+  var partes=[];
+  if(r.faltando.length)partes.push('<span>Faltando <b class="num" style="color:var(--success-ink)">+ '+brl(somaFaltando)+'</b></span>');
+  if(r.duplicada.length)partes.push('<span>Duplicadas <b class="num" style="color:var(--danger-ink)">− '+brl(somaDuplicada)+'</b></span>');
+  if(r.aMais.length)partes.push('<span>A mais <b class="num" style="color:var(--danger-ink)">− '+brl(somaAMais)+'</b></span>');
+  var html='<div class="card" style="background:var(--surface-2);box-shadow:none;margin:16px 0 0;padding:14px 18px;">'+
+    '<div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;font-size:14px;">'+partes.join('')+
+      '<span style="color:var(--ink-faint)">=</span><span>Diferença <b class="num" style="font-size:16px;color:var(--ink)">'+brl(totalizador)+'</b></span></div>'+
   '</div>';
-  html+='<hr><h3 style="font-size:15px">Faltando no relatório ('+r.faltando.length+') — <span style="color:var(--ink-muted);font-weight:600">'+brl(somaFaltando)+'</span></h3>'+
-    '<p class="sub">'+(sv?'Notas de '+rotSv+' ligadas a essa conta que não achei no relatório da conta.':'Notas de Entradas/Saídas desse CFOP que não achei no relatório da conta.')+'</p>'+
-    (r.faltando.length?'<div class="table-wrap"><table><thead><tr><th>Data</th><th>Nota</th><th>'+(sv?capital(SV[sv].part):'Fornecedor / cliente')+'</th><th>'+(sv?'Categoria':'CFOP')+'</th><th class="num">Valor</th></tr></thead><tbody>'+
-      r.faltando.slice(0,VC_LIMITE_LINHAS).map(function(n){return '<tr class="bad"><td>'+esc(n.data)+'</td><td>'+esc(n.numero)+'</td><td class="wrap">'+esc(n.nome)+'</td><td>'+esc(sv?catSv(n):n.cfop)+'</td><td class="num">'+brl(n.valor)+'</td></tr>';}).join('')+
-      '</tbody></table></div>'+vcAvisoTruncado(r.faltando.length):'<p class="empty">Nenhuma.</p>');
-  html+='<hr><h3 style="font-size:15px">Duplicadas no relatório ('+r.duplicada.length+') — <span style="color:var(--ink-muted);font-weight:600">'+brl(somaDuplicada)+'</span></h3>'+
-    '<p class="sub">Número de nota que aparece mais de uma vez no relatório da conta. O valor é o que ficou a mais por causa da repetição.</p>'+
-    (r.duplicada.length?'<div class="table-wrap"><table><thead><tr><th>Número</th><th class="num">Vezes</th><th class="num">Valor a mais</th></tr></thead><tbody>'+
-      r.duplicada.slice(0,VC_LIMITE_LINHAS).map(function(d){return '<tr class="bad"><td>'+esc(d.numero)+'</td><td class="num">'+d.vezes+'</td><td class="num">'+brl(d.valor)+'</td></tr>';}).join('')+
-      '</tbody></table></div>'+vcAvisoTruncado(r.duplicada.length):'<p class="empty">Nenhuma.</p>');
-  html+='<hr><h3 style="font-size:15px">A mais no relatório ('+r.aMais.length+') — <span style="color:var(--ink-muted);font-weight:600">'+brl(somaAMais)+'</span></h3>'+
-    '<p class="sub">'+(sv?'Linha do relatório que não bateu com nenhuma nota de '+rotSv+' ligada a essa conta.':'Linha do relatório que não bateu com nenhuma nota de Entradas/Saídas desse CFOP.')+'</p>'+
-    (r.aMais.length?'<div class="table-wrap"><table><thead><tr><th>Data</th><th>Histórico</th><th class="num">Valor</th></tr></thead><tbody>'+
-      r.aMais.slice(0,VC_LIMITE_LINHAS).map(function(l){return '<tr class="bad"><td>'+esc(l.data)+'</td><td class="wrap">'+esc(l.txt)+'</td><td class="num">'+brl(l.valor)+'</td></tr>';}).join('')+
-      '</tbody></table></div>'+vcAvisoTruncado(r.aMais.length):'<p class="empty">Nenhuma.</p>');
+  var conferido=verifEstado(vc.conta.codigo)==='conferido';
+  var secao=function(titulo,soma,sub,corpo){
+    return '<div class="vc-secao"><h4>'+titulo+' — <span style="color:var(--ink-muted);font-weight:600">'+brl(soma)+'</span></h4><p class="sub">'+sub+'</p>'+corpo+'</div>';
+  };
+  html+='<div class="vc-pend">'+
+    '<div class="vc-pend-head"><h3>Pendências ('+qtdPend+')</h3>'+
+      (conferido?'<button type="button" class="btn btn-sm vc-conferido-on" data-vc-conferido title="Marcada como conferida com pendências — clique pra desfazer">'+svg('check')+'Conferido</button>':
+        '<button type="button" class="btn btn-sm btn-outline" data-vc-conferido title="Seguir com essas pendências e marcar a conta como conferida">Marcar como conferido</button>')+
+    '</div>'+
+    (r.faltando.length?secao('Faltando no relatório ('+r.faltando.length+')',somaFaltando,
+      sv?'Notas de '+rotSv+' ligadas a essa conta que não achei no relatório da conta.':'Notas de Entradas/Saídas desse CFOP que não achei no relatório da conta.',
+      '<div class="table-wrap"><table><thead><tr><th>Data</th><th>Nota</th><th>'+(sv?capital(SV[sv].part):'Fornecedor / cliente')+'</th><th>'+(sv?'Categoria':'CFOP')+'</th><th class="num">Valor</th></tr></thead><tbody>'+
+        r.faltando.slice(0,VC_LIMITE_LINHAS).map(function(n){return '<tr class="bad"><td>'+esc(n.data)+'</td><td>'+esc(n.numero)+'</td><td class="wrap">'+esc(n.nome)+'</td><td>'+esc(sv?catSv(n):n.cfop)+'</td><td class="num">'+brl(n.valor)+'</td></tr>';}).join('')+
+      '</tbody></table></div>'+vcAvisoTruncado(r.faltando.length)):'')+
+    (r.duplicada.length?secao('Duplicadas no relatório ('+r.duplicada.length+')',somaDuplicada,
+      'Número de nota que aparece mais de uma vez no relatório da conta. O valor é o que ficou a mais por causa da repetição.',
+      '<div class="table-wrap"><table><thead><tr><th>Número</th><th class="num">Vezes</th><th class="num">Valor a mais</th></tr></thead><tbody>'+
+        r.duplicada.slice(0,VC_LIMITE_LINHAS).map(function(d){return '<tr class="bad"><td>'+esc(d.numero)+'</td><td class="num">'+d.vezes+'</td><td class="num">'+brl(d.valor)+'</td></tr>';}).join('')+
+      '</tbody></table></div>'+vcAvisoTruncado(r.duplicada.length)):'')+
+    (r.aMais.length?secao('A mais no relatório ('+r.aMais.length+')',somaAMais,
+      sv?'Linha do relatório que não bateu com nenhuma nota de '+rotSv+' ligada a essa conta.':'Linha do relatório que não bateu com nenhuma nota de Entradas/Saídas desse CFOP.',
+      '<div class="table-wrap"><table><thead><tr><th>Data</th><th>Histórico</th><th class="num">Valor</th></tr></thead><tbody>'+
+        r.aMais.slice(0,VC_LIMITE_LINHAS).map(function(l){return '<tr class="bad"><td>'+esc(l.data)+'</td><td class="wrap">'+esc(l.txt)+'</td><td class="num">'+brl(l.valor)+'</td></tr>';}).join('')+
+      '</tbody></table></div>'+vcAvisoTruncado(r.aMais.length)):'')+
+  '</div>';
   $('#vcResultado').innerHTML=html;
 }
+$('#vcBtReimportar').onclick=function(){vc.reimportando=true;$('#vcRazaoFile').value='';$('#vcRazaoFile').click();};
+$('#vcBtOk').onclick=function(){$('#btVoltarMov').click();};
+document.addEventListener('click',function(e){
+  if(!e.target.closest('[data-vc-conferido]')||!vc.conta)return;
+  var rot='Conta '+vc.conta.codigo+' — '+vc.conta.nome,on=verifEstado(vc.conta.codigo)==='conferido';
+  verifGravar(vc.conta.codigo,on?null:'conferido',rot+(on?' · conferido desfeito':' · conferida com pendências'));
+  vcRenderResultado();
+  toast(on?'Desfeito — a conta volta a mostrar a diferença.':'Conta marcada como conferida.');
+});
 $('#vcBtCsv').onclick=function(){
   var r=vc.resultado;if(!r)return;
   var somaFaltando=r.faltando.reduce(function(s,n){return s+n.valor;},0);
@@ -4206,8 +4259,9 @@ function renderConfServ(tipo){
       if(!g.contas.length)sit='<span class="badge badge-neutral">Configure em Cadastro › NFSEs</span>';
       else if(Math.abs(g.total)<0.005)sit='<span class="badge badge-neutral">0,00</span>';
       else if(saldo==null)sit='<span class="badge badge-neutral">Conta fora do balancete lido</span>';
-      else{var dif=g.total-saldo;sit=Math.abs(dif)<0.01?'<span class="badge badge-ok">Ok</span><span class="sit-vazio"></span>':
-        '<span class="badge badge-bad">'+brl(dif)+'</span><button type="button" class="icon-btn icon-btn-sm" data-ir-verificar="'+esc(g.contas[0])+'" title="Revisar esta conta" aria-label="Revisar esta conta">'+svg('fileSearch')+'</button>';}
+      else{var dif=g.total-saldo,vs=verifEstado(g.contas[0]);sit=Math.abs(dif)<0.01?'<span class="badge badge-ok">Ok</span><span class="sit-vazio"></span>':
+        vs==='ok'?'<span class="badge badge-ok" title="Diferença de '+brl(dif)+' no balancete lido — o relatório da conta foi conferido sem pendências">Ok</span><span class="sit-vazio"></span>':
+        (vs==='conferido'?'<span class="badge badge-conferido" title="Diferença de '+brl(dif)+' — conferido manualmente">Conferido</span>':'<span class="badge badge-bad">'+brl(dif)+'</span>')+'<button type="button" class="icon-btn icon-btn-sm" data-ir-verificar="'+esc(g.contas[0])+'" title="Revisar esta conta" aria-label="Revisar esta conta">'+svg('fileSearch')+'</button>';}
       if(sit.indexOf('sit-vazio')<0&&sit.indexOf('data-ir-verificar')<0)sit+='<span class="sit-vazio"></span>';
       return '<tr><td class="wrap"><b>'+esc(cats)+'</b></td><td style="white-space:nowrap">'+esc(titulo)+'</td>'+
         '<td class="wrap" title="'+esc(nomes.join(', '))+'">'+nomes.length+' '+(nomes.length>1?cfg.parts:cfg.part)+' · '+g.qtd+' nota(s)</td>'+
@@ -4260,7 +4314,7 @@ db.collection('empresas').onSnapshot(function(snap){
   var novo={};
   snap.forEach(function(doc){
     var d=doc.data(),nome=d.nome||doc.id;
-    novo[nome]=norm({contas:d.contas||[],dp:d.dp||[],entradas:d.entradas||[],saidas:d.saidas||[],divResolvidos:d.divResolvidos||[],confMarcados:d.confMarcados||[],confHistorico:d.confHistorico||[],naturezaConta:d.naturezaConta||{},confAutoMarcados:d.confAutoMarcados||[],confAutoRecusados:d.confAutoRecusados||[],importHistorico:d.importHistorico||[],autoLimparBalancete:d.autoLimparBalancete,avisoBalPendente:d.avisoBalPendente,balanceteAssinatura:d.balanceteAssinatura,balanceteAssinaturaTs:d.balanceteAssinaturaTs,servPrestados:d.servPrestados||[],servTomados:d.servTomados||[],servCat:d.servCat||{},vendaVista:d.vendaVista||{ativo:false,lancs:{}}});
+    novo[nome]=norm({contas:d.contas||[],dp:d.dp||[],entradas:d.entradas||[],saidas:d.saidas||[],divResolvidos:d.divResolvidos||[],confMarcados:d.confMarcados||[],confHistorico:d.confHistorico||[],naturezaConta:d.naturezaConta||{},confAutoMarcados:d.confAutoMarcados||[],confAutoRecusados:d.confAutoRecusados||[],importHistorico:d.importHistorico||[],autoLimparBalancete:d.autoLimparBalancete,avisoBalPendente:d.avisoBalPendente,balanceteAssinatura:d.balanceteAssinatura,balanceteAssinaturaTs:d.balanceteAssinaturaTs,servPrestados:d.servPrestados||[],servTomados:d.servTomados||[],servCat:d.servCat||{},vendaVista:d.vendaVista||{ativo:false,lancs:{}},verifConta:d.verifConta||{}});
   });
   dados=novo;
   if(primeiraCarga){
