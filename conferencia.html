@@ -824,6 +824,28 @@
   .gh-search.cons-busca{flex:1 1 320px;margin:0;}
   .gh-search.cons-busca input[type="text"]{min-height:32px;}
   .gh-box .cons-resumo{padding:8px 16px;border-top:1px solid var(--border);font-size:13px;}
+
+  /* NFSEs: categoria com rótulos alinhados e lista de fornecedores */
+  .serv-bloco{display:grid;grid-template-columns:104px minmax(0,1fr);align-items:start;gap:4px 12px;margin-top:12px;}
+  .serv-rot{font-size:12.5px;color:var(--ink-muted);padding-top:6px;}
+  .serv-bloco-corpo .ndp-contas-row{margin:0;}
+  .serv-resumo{display:inline-block;padding-top:5px;font-size:13px;color:var(--ink-muted);}
+  .serv-forn-lista{border:1px solid var(--border);border-radius:6px;overflow:visible;}
+  .serv-forn-item{display:flex;align-items:center;gap:12px;min-height:40px;padding:6px 8px 6px 12px;border-bottom:1px solid var(--border);}
+  .serv-forn-item:hover{background:var(--hover-bg);}
+  .serv-forn-nome{flex:1 1 auto;min-width:0;font-size:13.5px;font-weight:500;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .serv-forn-qtd{flex:none;font-size:12.5px;color:var(--ink-muted);font-variant-numeric:tabular-nums;}
+  .serv-forn-rm{flex:none;display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border:none;border-radius:6px;
+    background:none;color:var(--ink-muted);cursor:pointer;opacity:.55;transition:opacity .12s ease,color .12s ease,background .12s ease;}
+  .serv-forn-rm svg{width:14px;height:14px;}
+  .serv-forn-item:hover .serv-forn-rm,.serv-forn-rm:focus-visible{opacity:1;}
+  .serv-forn-rm:hover{color:var(--danger);background:var(--btn-hover,var(--hover-bg));}
+  .serv-forn-lista .serv-add{margin:0;padding:6px;}
+  .serv-forn-lista .serv-add-btn{width:100%;justify-content:flex-start;border:none;background:none;box-shadow:none;color:var(--ink-muted);}
+  .serv-forn-lista .serv-add-btn:hover{color:var(--ink);background:var(--hover-bg);}
+  .serv-forn-lista .serv-add-form{padding:2px;}
+  .serv-bloco .serv-sug{margin-top:8px;}
+  @media (max-width:640px){.serv-bloco{grid-template-columns:1fr;}.serv-rot{padding-top:0;}}
 </style>
 </head>
 <body>
@@ -1241,7 +1263,7 @@
 (function(){
 "use strict";
 
-var APP_VERSION='beta 0.1.9';
+var APP_VERSION='beta 0.1.10';
 document.querySelectorAll('#verLogin,#verApp,#verDrawer').forEach(function(el){el.textContent='Versão: '+APP_VERSION;});
 
 /* ============================== ícones ============================== */
@@ -3940,7 +3962,7 @@ function servContasHtml(k){
         '<button type="button" data-ndp-rm="'+esc(k)+'" data-ndp-rm-conta="'+esc(codigo)+'" title="Desvincular">&times;</button></span>';
     }).join('')+'</div>':'')+
     '<div class="ndp-add" data-ndp-add="'+esc(k)+'">'+
-      '<button type="button" class="btn btn-sm ndp-add-btn" title="Vincular uma conta">'+svg('plus')+(ligadas.length?'Adicionar':'Conta')+'</button>'+
+      '<button type="button" class="btn btn-sm ndp-add-btn" title="Vincular uma conta">'+svg('plus')+(ligadas.length?'Adicionar':'Vincular conta')+'</button>'+
       '<div class="ndp-add-campo" hidden>'+
         '<input type="text" class="ndp-add-input" placeholder="Vincular conta — nome ou código" autocomplete="off">'+
         '<div class="table-wrap scroll-list ndp-add-lista" style="position:absolute;top:100%;left:0;right:0;margin-top:6px;z-index:30;box-shadow:var(--shadow-lg);" hidden></div>'+
@@ -3979,23 +4001,24 @@ function renderCadServ(){
   Object.keys(mapa).forEach(function(k){var m=mapa[k];if(!parts[k]&&m.cat!=='geral'&&!catFixa(t,m.nome))(porCat[m.cat]=porCat[m.cat]||[]).push(k);});
   box.innerHTML='<div class="ndp-list">'+cats.map(function(c){
     var ks=(porCat[c.id]||[]).slice().sort(),corpo;
+    // cada categoria: linha "Conta" e (nas específicas) linha "Fornecedores", rótulos alinhados à esquerda
+    var bloco=function(rot,html){return '<div class="serv-bloco"><span class="serv-rot">'+rot+'</span><div class="serv-bloco-corpo">'+html+'</div></div>';};
+    var contaHtml=bloco('Conta',servContasHtml(chaveContaCat(t,c.id)));
     if(c.id==='geral'){
-      var qtdNotas=ks.reduce(function(s,k){return s+(parts[k]?parts[k].qtd:0);},0);
-      corpo=servContasHtml(chaveContaCat(t,c.id))+
-        '<p class="hint" style="margin:8px 0 0">'+ks.length+' '+(ks.length===1?cfg.part:cfg.parts)+' · '+qtdNotas+' nota(s) nas notas importadas.</p>';
+      corpo=contaHtml;
     }else if(c.travado){
-      corpo=servContasHtml(chaveContaCat(t,c.id));
+      corpo=contaHtml;
     }else{
       var sug=Object.keys(parts).filter(function(k){return catDoPart(t,parts[k].nome)==='geral'&&parts[k].lancs[c.lanc];}).sort();
-      corpo=servContasHtml(chaveContaCat(t,c.id))+
-        (ks.length?'<div class="serv-parts">'+ks.map(function(k){
+      corpo=contaHtml+bloco('Fornecedores',
+        '<div class="serv-forn-lista">'+ks.map(function(k){
           var p=parts[k],m=mapa[k]||{},nome=p?p.nome:m.nome;
-          return '<span class="serv-part-chip">'+esc(nome)+' <small>'+(p?p.qtd+' nota(s)':'sem notas')+'</small>'+
-            '<button type="button" data-serv-rm="'+t+'" data-nome="'+esc(nome)+'" title="Tirar da categoria (volta pra '+esc(cats[0].nome)+')" aria-label="Tirar '+esc(nome)+' da categoria">&times;</button></span>';
-        }).join('')+'</div>':'')+
-        servFormHtml(t,c)+
+          return '<div class="serv-forn-item"><span class="serv-forn-nome" title="'+esc(nome)+'">'+esc(nome)+'</span>'+
+            '<span class="serv-forn-qtd">'+(p?p.qtd+' '+(p.qtd===1?'nota':'notas'):'sem notas')+'</span>'+
+            '<button type="button" class="serv-forn-rm" data-serv-rm="'+t+'" data-nome="'+esc(nome)+'" title="Tirar da categoria (volta pra '+esc(cats[0].nome)+')" aria-label="Tirar '+esc(nome)+' da categoria">'+svg('x')+'</button></div>';
+        }).join('')+servFormHtml(t,c)+'</div>'+
         (sug.length?'<div class="serv-sug">'+svg('alert')+'<span>Lançados com '+esc(c.lanc)+' nas notas, mas fora da categoria:</span>'+
-          sug.map(function(k){return '<button type="button" class="btn btn-sm" data-serv-sug="'+t+'|'+c.id+'" data-nome="'+esc(parts[k].nome)+'">'+svg('plus')+esc(parts[k].nome)+'</button>';}).join('')+'</div>':'');
+          sug.map(function(k){return '<button type="button" class="btn btn-sm" data-serv-sug="'+t+'|'+c.id+'" data-nome="'+esc(parts[k].nome)+'">'+svg('plus')+esc(parts[k].nome)+'</button>';}).join('')+'</div>':''));
     }
     return '<div class="ndp-item serv-cat">'+
       '<div class="ndp-natureza">'+esc(c.nome)+'<span class="badge badge-neutral">Lançamento '+esc(c.lanc)+'</span>'+(c.travado?'<span class="serv-cadeado" title="Permanente — não muda" aria-label="Permanente">'+svg('lock')+'</span>':'')+
