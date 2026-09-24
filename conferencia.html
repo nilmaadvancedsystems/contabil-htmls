@@ -1219,7 +1219,7 @@
 (function(){
 "use strict";
 
-var APP_VERSION='beta 0.1.5';
+var APP_VERSION='beta 0.1.6';
 document.querySelectorAll('#verLogin,#verApp,#verDrawer').forEach(function(el){el.textContent='Versão: '+APP_VERSION;});
 
 /* ============================== ícones ============================== */
@@ -1656,9 +1656,9 @@ function renderNav(){
   var s=secaoPorId(m.sec);if(!s)return;
   var ativo=m.nav||view;
   $('#menu').innerHTML=s.itens.map(function(it){
-    var c=contadorSubnav(it.v),on=it.v===ativo;
+    var on=it.v===ativo;
     return '<button type="button" class="menu-item'+(on?' active':'')+'" data-ir="'+it.v+'"'+(on?' aria-current="page"':'')+'>'+
-      svg(it.icon)+'<span>'+esc(it.label)+'</span>'+(c!=null?'<span class="menu-count">'+esc(String(c))+'</span>':'')+'</button>';
+      svg(it.icon)+'<span>'+esc(it.label)+'</span></button>';
   }).join('');
 }
 /* ---- bloqueio por arquivo não importado ----
