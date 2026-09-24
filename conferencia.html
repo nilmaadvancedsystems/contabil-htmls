@@ -994,7 +994,6 @@
         <div id="perAlertas"></div>
         <div class="card">
           <h3>Cobertura por mês</h3>
-          <p class="sub">Cada quadrado é um mês: quanto mais forte a cor, mais notas importadas. Contorno tracejado é mês sem nenhuma nota dentro do período.</p>
           <div id="perGrade"></div>
         </div>
         <div class="dash-grid">
@@ -1017,7 +1016,6 @@
         </div>
         <div class="card">
           <h3 id="cadServTitulo">Serviços prestados</h3>
-          <p class="sub" id="cadServSub"></p>
           <div id="cadServBox"></div>
         </div>
       </section>
@@ -1029,7 +1027,6 @@
         </div>
         <div class="card">
           <h3 id="cadTitulo">Naturezas de entrada</h3>
-          <p class="sub">Vincule cada natureza de CFOP à conta contábil em que ela é lançada. Fica guardado — não precisa refazer a cada mês.</p>
           <div id="ndpBoxEnt"></div>
           <div id="ndpBoxSai" hidden></div>
         </div>
@@ -1191,7 +1188,7 @@
 (function(){
 "use strict";
 
-var APP_VERSION='beta 0.1.1';
+var APP_VERSION='beta 0.1.2';
 document.querySelectorAll('#verLogin,#verApp,#verDrawer').forEach(function(el){el.textContent='Versão: '+APP_VERSION;});
 
 /* ============================== ícones ============================== */
@@ -3812,15 +3809,15 @@ function renderServImportados(tipo){
    categoria do participante — não a maioria das notas. */
 var SERV_CAT={
   tomados:[
-    {id:'geral',nome:'Serviços tomados gerais',lanc:'527',dica:'Todos os fornecedores que não estão numa categoria abaixo.'},
-    {id:'honorario',nome:'Honorário',lanc:'42',travado:true,fixos:['NILMA DIAS OLIVEIRA','NILMA CONTABILIDADE'],fixosRot:['NILMA DIAS OLIVEIRA - ME','NILMA CONTABILIDADE LTDA'],dica:'Os fornecedores de honorário são fixos.'},
-    {id:'telefone',nome:'Telefone',lanc:'38',dica:'Fornecedores de serviço de telefone.'},
-    {id:'internet',nome:'Internet',lanc:'38',dica:'Fornecedores de serviço de internet.'},
-    {id:'viagem',nome:'Despesas de viagem',lanc:'259',dica:'Hotel, hospedagem, passagem e demais despesas de viagem.'},
-    {id:'sistemas',nome:'Locação de sistemas',lanc:'503',dica:'Fornecedores de sistemas.'}
+    {id:'geral',nome:'Serviços tomados gerais',lanc:'527'},
+    {id:'honorario',nome:'Honorário',lanc:'42',travado:true,fixos:['NILMA DIAS OLIVEIRA','NILMA CONTABILIDADE'],fixosRot:['NILMA DIAS OLIVEIRA - ME','NILMA CONTABILIDADE LTDA']},
+    {id:'telefone',nome:'Telefone',lanc:'38'},
+    {id:'internet',nome:'Internet',lanc:'38'},
+    {id:'viagem',nome:'Despesas de viagem',lanc:'259'},
+    {id:'sistemas',nome:'Locação de sistemas',lanc:'503'}
   ],
   prestados:[
-    {id:'geral',nome:'Serviços prestados',lanc:'160',dica:'Todos os clientes.'}
+    {id:'geral',nome:'Serviços prestados',lanc:'160'}
   ]
 };
 function catServ(tipo,id){return SERV_CAT[tipo].filter(function(c){return c.id===id;})[0]||SERV_CAT[tipo][0];}
@@ -3889,8 +3886,6 @@ function renderCadServ(){
   var t=cadServTipo,cfg=SV[t],cats=SERV_CAT[t];
   $$('#cadServSeg .step-pill').forEach(function(b){b.setAttribute('aria-current',b.dataset.cadServ===t?'true':'false');});
   $('#cadServTitulo').textContent=cfg.rotulo;
-  $('#cadServSub').textContent='Todos os '+cfg.rotulo.toLowerCase()+' são obrigatórios o lançamento automático '+cfg.lancPadrao+'.'+
-    (cats.length>1?' A exceção são as categorias abaixo, que têm lançamento próprio (padrão do escritório).':'');
   if(!emp().contas.length){box.innerHTML='<p class="empty">Importe o balancete para vincular as contas.</p>';return;}
   var parts=servPartsDasNotas(t),mapa=(emp().servCat||{})[t]||{};
   var porCat={};
@@ -3921,7 +3916,7 @@ function renderCadServ(){
     }
     return '<div class="ndp-item serv-cat">'+
       '<div class="ndp-natureza">'+esc(c.nome)+'<span class="badge badge-neutral">Lançamento '+esc(c.lanc)+'</span>'+(c.travado?'<span class="serv-cadeado" title="Permanente — não muda" aria-label="Permanente">'+svg('lock')+'</span>':'')+
-        '<span class="ndp-sub">'+esc(c.dica)+'</span></div>'+corpo+
+        (c.dica?'<span class="ndp-sub">'+esc(c.dica)+'</span>':'')+'</div>'+corpo+
     '</div>';
   }).join('')+'</div>';
 }
