@@ -887,7 +887,7 @@
   table.vc-tabela td{vertical-align:middle;}
   table.vc-tabela th,table.vc-tabela td{padding-left:12px;padding-right:12px;}
   table.vc-tabela .vc-nw{white-space:nowrap;font-variant-numeric:tabular-nums;}
-  table.vc-tabela .vc-nome{color:var(--ink);max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  table.vc-tabela .vc-nome{color:var(--ink);max-width:420px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
   table.vc-tabela .vc-onde{white-space:nowrap;color:var(--ink);}
   table.vc-tabela .vc-onde.vazio{color:var(--ink-muted);font-style:italic;}
   table.vc-tabela .vc-mut{color:var(--ink-muted);max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
@@ -1293,7 +1293,7 @@
 (function(){
 "use strict";
 
-var APP_VERSION='beta 0.1.24';
+var APP_VERSION='beta 0.1.26';
 document.querySelectorAll('#verLogin,#verApp,#verDrawer').forEach(function(el){el.textContent='Versão: '+APP_VERSION;});
 
 /* ============================== ícones ============================== */
@@ -3498,6 +3498,31 @@ function vcOndeNota(numero,nome){
   var mesmo=achados.filter(function(a){return nn&&(nomeNorm(a.n.nome).indexOf(nn.slice(0,12))>-1||nn.indexOf(nomeNorm(a.n.nome).slice(0,12))>-1);})[0];
   return (mesmo||achados[0]).rot;
 }
+// uma linha do relatório no formato da tabela
+function vcLinhaRazao(l){
+  var p=vcPartesHistorico(l.txt);
+  return {data:l.data,nota:p.nota,part:p.nome||l.txt,contra:p.lanc,valor:l.valor,txt:l.txt};
+}
+// linhas "a mais" por causa da repetição: de cada número repetido, todas menos a de menor valor
+function vcLinhasDuplicadas(r){
+  var out=[];
+  r.duplicada.forEach(function(d){
+    var ls=vc.razaoLinhas.filter(function(l){return vcNumerosDoHistorico(l.txt,!!r.serv).some(function(t){return (t.replace(/^0+/,'')||t)===d.numero;});})
+      .slice().sort(function(a,b){return a.valor-b.valor;});
+    ls.slice(1).forEach(function(l){out.push(vcLinhaRazao(l));});
+  });
+  return out;
+}
+function vcLinhasFaltando(r){
+  return r.faltando.map(function(n){return {data:n.data,nota:n.numero,part:n.nome,contra:'',valor:n.valor};});
+}
+function vcTabela(linhas){
+  return '<div class="table-wrap"><table class="vc-tabela"><thead><tr><th>Data</th><th>Nota</th><th>Participante</th><th>Contrapartida</th><th class="num">Valor</th></tr></thead><tbody>'+
+    linhas.slice(0,VC_LIMITE_LINHAS).map(function(l){
+      return '<tr class="bad"'+(l.txt?' title="'+esc(l.txt)+'"':'')+'><td class="vc-nw">'+esc(l.data)+'</td><td class="vc-nw">'+esc(l.nota||'—')+'</td>'+
+        '<td class="vc-nome">'+esc(l.part||'—')+'</td><td class="vc-nw">'+esc(l.contra||'—')+'</td><td class="num">'+brl(l.valor)+'</td></tr>';
+    }).join('')+'</tbody></table></div>'+vcAvisoTruncado(linhas.length);
+}
 function vcMostrarResultado(mostrar){
   $('#vcResultadoCard').hidden=!mostrar;
   $('#vcFormCard').hidden=!!mostrar; // com resultado na tela, a importação sai e fica só o Reimportar
@@ -3723,10 +3748,6 @@ function vcRenderResultado(){
   var qtdPend=r.faltando.length+r.duplicada.length+r.aMais.length,limpo=!qtdPend;
   var dif=r.somaFiscal-r.somaRazao,zero=Math.abs(dif)<0.005,conta=r.conta||vc.conta||{codigo:'',nome:''};
   var numero=function(rot,valor,cls){return '<div class="vc-num'+(cls?' '+cls:'')+'"><p class="vc-num-rot">'+rot+'</p><p class="vc-num-val">'+valor+'</p></div>';};
-  var comp=[];
-  if(r.faltando.length)comp.push('Faltando no relatório <b>+ '+brl(somaFaltando)+'</b>');
-  if(r.duplicada.length)comp.push('Duplicadas <b>− '+brl(somaDuplicada)+'</b>');
-  if(r.aMais.length)comp.push('A mais no relatório <b>− '+brl(somaAMais)+'</b>');
   $('#vcStats').className='vc-resumo';
   $('#vcStats').innerHTML=
     '<div class="vc-resumo-conta"><p class="vc-resumo-rot">Conta contábil</p>'+
@@ -3736,8 +3757,7 @@ function vcRenderResultado(){
       numero('Relatório da conta',brl(r.somaRazao))+
       numero('Notas fiscais',brl(r.somaFiscal))+
       numero('Diferença',brl(dif),zero?'ok':'bad')+
-    '</div>'+
-    (comp.length?'<p class="vc-resumo-comp"><span>Composição da diferença</span>'+comp.join('<span class="vc-sep">·</span>')+'</p>':'');
+    '</div>';
   $('#vcBtReimportar').hidden=limpo;$('#vcBtOk').hidden=!limpo;
   if(limpo){
     $('#vcResultado').innerHTML='<div class="alert" style="border-color:var(--success);background:var(--success-soft);color:var(--success-ink);margin:16px 0 0">'+svg('checkCircle')+
@@ -3746,36 +3766,20 @@ function vcRenderResultado(){
   }
   var html='';
   var conferido=verifEstado(vc.conta.codigo)==='conferido';
-  var secao=function(titulo,soma,sub,corpo){
-    return '<div class="vc-secao"><h4>'+titulo+' — <span style="color:var(--ink-muted);font-weight:600">'+brl(soma)+'</span></h4><p class="sub">'+sub+'</p>'+corpo+'</div>';
+  var secao=function(titulo,soma,corpo){
+    return '<div class="vc-secao"><h4>'+titulo+' — <span style="color:var(--ink-muted);font-weight:600">'+brl(soma)+'</span></h4>'+corpo+'</div>';
   };
   html+='<div class="vc-pend">'+
-    '<div class="vc-pend-head"><h3>Pendências ('+qtdPend+')</h3>'+
+    '<div class="vc-pend-head"><h3>Pendências</h3>'+
       (conferido?'<button type="button" class="btn btn-sm vc-conferido-on" data-vc-conferido title="Marcada como conferida com pendências — clique pra desfazer">'+svg('check')+'Conferido</button>':
         '<button type="button" class="btn btn-sm btn-outline" data-vc-conferido title="Seguir com essas pendências e marcar a conta como conferida">Marcar como conferido</button>')+
     '</div>'+
-    (r.faltando.length?secao('Faltando no relatório ('+r.faltando.length+')',somaFaltando,
-      sv?'Notas de '+rotSv+' ligadas a essa conta que não achei no relatório da conta.':'Notas de Entradas/Saídas desse CFOP que não achei no relatório da conta.',
-      '<div class="table-wrap"><table><thead><tr><th>Data</th><th>Nota</th><th>'+(sv?capital(SV[sv].part):'Fornecedor / cliente')+'</th><th>'+(sv?'Categoria':'CFOP')+'</th><th class="num">Valor</th></tr></thead><tbody>'+
-        r.faltando.slice(0,VC_LIMITE_LINHAS).map(function(n){return '<tr class="bad"><td>'+esc(n.data)+'</td><td>'+esc(n.numero)+'</td><td class="wrap">'+esc(n.nome)+'</td><td>'+esc(sv?catSv(n):n.cfop)+'</td><td class="num">'+brl(n.valor)+'</td></tr>';}).join('')+
-      '</tbody></table></div>'+vcAvisoTruncado(r.faltando.length)):'')+
-    (r.duplicada.length?secao('Duplicadas no relatório ('+r.duplicada.length+')',somaDuplicada,
-      'Número de nota que aparece mais de uma vez no relatório da conta. O valor é o que ficou a mais por causa da repetição.',
-      '<div class="table-wrap"><table><thead><tr><th>Número</th><th class="num">Vezes</th><th class="num">Valor a mais</th></tr></thead><tbody>'+
-        r.duplicada.slice(0,VC_LIMITE_LINHAS).map(function(d){return '<tr class="bad"><td>'+esc(d.numero)+'</td><td class="num">'+d.vezes+'</td><td class="num">'+brl(d.valor)+'</td></tr>';}).join('')+
-      '</tbody></table></div>'+vcAvisoTruncado(r.duplicada.length)):'')+
-    (r.aMais.length?secao('A mais no relatório ('+r.aMais.length+')',somaAMais,
-      sv?'Linha do relatório que não bateu com nenhuma nota de '+rotSv+' ligada a essa conta.':'Linha do relatório que não bateu com nenhuma nota de Entradas/Saídas desse CFOP.',
-      '<div class="table-wrap"><table class="vc-tabela"><thead><tr><th>Data</th><th>Nota</th><th>Participante</th><th>Onde a nota está</th><th>Contrapartida</th><th class="num">Valor</th></tr></thead><tbody>'+
-        r.aMais.slice(0,VC_LIMITE_LINHAS).map(function(l){
-          var p=vcPartesHistorico(l.txt),entendeu=p.nome||p.nota,onde=p.nota?vcOndeNota(p.nota,p.nome):'';
-          return '<tr class="bad" title="'+esc(l.txt)+'"><td class="vc-nw">'+esc(l.data)+'</td>'+
-            (entendeu?'<td class="vc-nw">'+esc(p.nota||'—')+'</td><td class="vc-nome">'+esc(p.nome||'—')+'</td>':
-              '<td class="vc-nw">—</td><td class="vc-nome">'+esc(l.txt)+'</td>')+
-            '<td class="vc-onde'+(onde?'':' vazio')+'">'+esc(onde||(p.nota?'Não está nas notas importadas':'—'))+'</td>'+
-            '<td class="vc-mut" title="'+esc((p.contra||'')+(p.lanc?' · lançamento '+p.lanc:''))+'">'+esc(p.contra?p.contra+(p.lanc?' · '+p.lanc:''):'—')+'</td><td class="num">'+brl(l.valor)+'</td></tr>';
-        }).join('')+
-      '</tbody></table></div>'+vcAvisoTruncado(r.aMais.length)):'')+
+    (r.faltando.length?secao('Faltando na conta ('+r.faltando.length+')',somaFaltando,
+      vcTabela(vcLinhasFaltando(r))):'')+
+    (r.duplicada.length?secao('Duplicadas na conta ('+r.duplicada.length+')',somaDuplicada,
+      vcTabela(vcLinhasDuplicadas(r))):'')+
+    (r.aMais.length?secao('A mais na conta ('+r.aMais.length+')',somaAMais,
+      vcTabela(r.aMais.map(vcLinhaRazao))):'')+
   '</div>';
   $('#vcResultado').innerHTML=html;
 }
@@ -3793,11 +3797,11 @@ $('#vcBtCsv').onclick=function(){
   var somaFaltando=r.faltando.reduce(function(s,n){return s+n.valor;},0);
   var somaDuplicada=r.duplicada.reduce(function(s,d){return s+d.valor;},0);
   var somaAMais=r.aMais.reduce(function(s,l){return s+l.valor;},0);
-  var sv=r.serv;
-  var L=['Tipo;Data;Nota;Fornecedor;'+(sv?'Categoria':'CFOP')+';Valor'];
-  r.faltando.forEach(function(n){L.push(['Faltando',n.data,n.numero,n.nome,sv?catServ(sv,catDoPart(sv,n.nome)).nome:n.cfop,brl(n.valor)].join(';'));});
-  r.duplicada.forEach(function(d){L.push(['Duplicada','','número '+d.numero+' ('+d.vezes+' vezes)','','',brl(d.valor)].join(';'));});
-  r.aMais.forEach(function(l){L.push(['A mais',l.data,'','',l.txt,brl(l.valor)].join(';'));});
+  var L=['Tipo;Data;Nota;Participante;Contrapartida;Valor'];
+  var add=function(tipo,l){L.push([tipo,l.data,l.nota||'',String(l.part||'').replace(/;/g,','),l.contra||'',brl(l.valor)].join(';'));};
+  vcLinhasFaltando(r).forEach(function(l){add('Faltando',l);});
+  vcLinhasDuplicadas(r).forEach(function(l){add('Duplicada',l);});
+  r.aMais.map(vcLinhaRazao).forEach(function(l){add('A mais',l);});
   L.push('');
   L.push(['Totalizador','','','','Faltando',brl(somaFaltando)].join(';'));
   L.push(['Totalizador','','','','Duplicadas',brl(-somaDuplicada)].join(';'));
