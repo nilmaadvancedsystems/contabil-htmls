@@ -604,6 +604,9 @@
   .sit{display:grid;grid-template-columns:auto 28px;gap:8px;align-items:center;justify-content:end;}
   .sit .badge{justify-self:end;}
   .sit-vazio{width:28px;height:28px;}
+  /* título "Situação" termina onde terminam os badges (28px do ícone Revisar + 8px de espaço) */
+  thead th.th-sit{padding-right:calc(16px + 36px);}
+  .table-compact thead th.th-sit{padding-right:calc(12px + 36px);}
 
   /* ---------------------------------- cadastro: botão Adicionar que abre o campo ---------------------------------- */
   .ndp-add{position:relative;flex:0 0 auto;}
@@ -1290,7 +1293,7 @@
 (function(){
 "use strict";
 
-var APP_VERSION='beta 0.1.22';
+var APP_VERSION='beta 0.1.23';
 document.querySelectorAll('#verLogin,#verApp,#verDrawer').forEach(function(el){el.textContent='Versão: '+APP_VERSION;});
 
 /* ============================== ícones ============================== */
@@ -3269,8 +3272,7 @@ function renderCcBalancete(grupos,chaves,tipoF){
       comp.contas.map(function(c){var n=nomeConta(c);return c+(n?' — '+n:'');}).join(' + ');
   });
   comps.sort(function(a,b){return a.tituloContas.localeCompare(b.tituloContas,undefined,{numeric:true});});
-  $('#ccBalancete').innerHTML='<div class="table-wrap" style="max-height:none;"><table class="table-compact"><thead><tr><th>Conta(s)</th><th>CFOP(s)</th>'+
-    '<th class="num">Soma das notas</th><th class="num">Saldo do balancete</th><th class="num">Situação</th></tr></thead><tbody>'+
+  $('#ccBalancete').innerHTML='<div class="table-wrap" style="max-height:none;"><table class="table-compact"><thead><tr><th>Conta</th><th>Origem</th><th class="num">Notas</th><th class="num">Soma das notas</th><th class="num">Saldo do balancete</th><th class="num th-sit">Situação</th></tr></thead><tbody>'+
     comps.map(function(comp){
       var cfops=comp.naturezas.reduce(function(l,k){return l.concat(grupos[k].cfops);},[])
         .filter(function(c,i,l){return l.indexOf(c)===i;})
@@ -3290,8 +3292,10 @@ function renderCcBalancete(grupos,chaves,tipoF){
           vs==='ok'?'<span class="badge badge-ok" title="Diferença de '+brl(dif)+' no balancete lido — o relatório da conta foi conferido sem pendências">Ok</span><span class="sit-vazio"></span>':
           (conferidoManual||vs==='conferido'?'<span class="badge badge-conferido" title="Diferença de '+brl(dif)+' — conferido manualmente">Conferido</span>':'<span class="badge badge-bad">'+brl(dif)+'</span>')+'<button type="button" class="icon-btn icon-btn-sm" data-ir-verificar="'+esc(comp.contas[0])+'" title="Revisar esta conta" aria-label="Revisar esta conta">'+svg('fileSearch')+'</button>';
       }
+      var qtdNotas=comp.naturezas.reduce(function(s,k){return s+grupos[k].itens.length;},0);
       return '<tr><td style="white-space:nowrap"><b>'+esc(comp.tituloContas)+'</b></td>'+
-        '<td class="wrap">'+esc(cfops.join(', '))+'</td>'+
+        '<td class="wrap">CFOP '+esc(cfops.join(', '))+'</td>'+
+        '<td class="num">'+qtdNotas+'</td>'+
         '<td class="num">'+brl(comp.notasTotal)+'</td>'+
         '<td class="num">'+(comp.saldo==null?'—':brl(comp.saldo))+'</td>'+
         '<td><div class="sit">'+situacao+'</div></td></tr>';
@@ -4199,11 +4203,10 @@ function renderConfServ(tipo){
   });
   var ks=Object.keys(grupos).sort();
   $('#confServBal').innerHTML=!ks.length?'<p class="empty">Nenhuma nota no período.</p>':
-    '<div class="table-wrap" style="max-height:none;"><table class="table-compact"><thead><tr><th>Categoria</th><th>Conta(s)</th><th>'+capital(cfg.parts)+'</th>'+
-    '<th class="num">Soma das notas</th><th class="num">Saldo do balancete</th><th class="num">Situação</th></tr></thead><tbody>'+
+    '<div class="table-wrap" style="max-height:none;"><table class="table-compact"><thead><tr><th>Conta</th><th>Origem</th><th class="num">Notas</th><th class="num">Soma das notas</th><th class="num">Saldo do balancete</th><th class="num th-sit">Situação</th></tr></thead><tbody>'+
     ks.map(function(k){
       var g=grupos[k],nomes=Object.keys(g.parts).map(function(x){return g.parts[x];});
-      var cats=Object.keys(g.cats).map(function(id){return g.cats[id].nome+' ('+g.cats[id].lanc+')';}).join(', ');
+      var cats=Object.keys(g.cats).map(function(id){return g.cats[id].nome+' · lanç. '+g.cats[id].lanc;}).join(', ');
       var titulo=g.contas.length?g.contas.map(function(c){var nm=nomeConta(c);return c+(nm?' — '+nm:'');}).join(' + '):'Sem conta vinculada';
       var saldo=null,falta=g.contas.some(function(c){return saldoAtualizado(c)==null;});
       if(g.contas.length&&!falta)saldo=g.contas.reduce(function(s,c){return s+saldoAtualizado(c);},0);
@@ -4215,8 +4218,9 @@ function renderConfServ(tipo){
         vs==='ok'?'<span class="badge badge-ok" title="Diferença de '+brl(dif)+' no balancete lido — o relatório da conta foi conferido sem pendências">Ok</span><span class="sit-vazio"></span>':
         (vs==='conferido'?'<span class="badge badge-conferido" title="Diferença de '+brl(dif)+' — conferido manualmente">Conferido</span>':'<span class="badge badge-bad">'+brl(dif)+'</span>')+'<button type="button" class="icon-btn icon-btn-sm" data-ir-verificar="'+esc(g.contas[0])+'" title="Revisar esta conta" aria-label="Revisar esta conta">'+svg('fileSearch')+'</button>';}
       if(sit.indexOf('sit-vazio')<0&&sit.indexOf('data-ir-verificar')<0)sit+='<span class="sit-vazio"></span>';
-      return '<tr><td class="wrap"><b>'+esc(cats)+'</b></td><td style="white-space:nowrap">'+esc(titulo)+'</td>'+
-        '<td class="wrap" title="'+esc(nomes.join(', '))+'">'+nomes.length+' '+(nomes.length>1?cfg.parts:cfg.part)+' · '+g.qtd+' nota(s)</td>'+
+      return '<tr><td style="white-space:nowrap">'+(g.contas.length?'<b>'+esc(titulo)+'</b>':'<span style="color:var(--ink-muted)">'+esc(titulo)+'</span>')+'</td>'+
+        '<td class="wrap">'+esc(cats)+'</td>'+
+        '<td class="num" title="'+esc(nomes.length+' '+(nomes.length>1?cfg.parts:cfg.part)+': '+nomes.join(', '))+'">'+g.qtd+'</td>'+
         '<td class="num">'+brl(g.total)+'</td><td class="num">'+(saldo==null?'—':brl(saldo))+'</td>'+
         '<td><div class="sit">'+sit+'</div></td></tr>';
     }).join('')+'</tbody></table></div>';
