@@ -846,6 +846,10 @@
   .serv-forn-lista .serv-add-form{padding:2px;}
   .serv-bloco .serv-sug{margin-top:8px;}
   @media (max-width:640px){.serv-bloco{grid-template-columns:1fr;}.serv-rot{padding-top:0;}}
+
+  /* fora do padrão (serviços): conferido igual Naturezas */
+  #natListaServ tr.feito td{background:none;}
+  #natListaServ tr.feito.anima td:not(:first-child){animation:ofuscar .45s ease-out .1s both;}
 </style>
 </head>
 <body>
@@ -1263,7 +1267,7 @@
 (function(){
 "use strict";
 
-var APP_VERSION='beta 0.1.11';
+var APP_VERSION='beta 0.1.12';
 document.querySelectorAll('#verLogin,#verApp,#verDrawer').forEach(function(el){el.textContent='Versão: '+APP_VERSION;});
 
 /* ============================== ícones ============================== */
@@ -3964,13 +3968,13 @@ function servContasHtml(k){
       return '<span class="ndp-chip">'+esc(codigo)+(c?' — '+esc(c.nome):' — fora do plano')+
         '<button type="button" data-ndp-rm="'+esc(k)+'" data-ndp-rm-conta="'+esc(codigo)+'" title="Desvincular">&times;</button></span>';
     }).join('')+'</div>':'')+
-    '<div class="ndp-add" data-ndp-add="'+esc(k)+'">'+
-      '<button type="button" class="btn btn-sm ndp-add-btn" title="Vincular uma conta">'+svg('plus')+(ligadas.length?'Adicionar':'Vincular conta')+'</button>'+
+    (ligadas.length?'':'<div class="ndp-add" data-ndp-add="'+esc(k)+'">'+
+      '<button type="button" class="btn btn-sm ndp-add-btn" title="Vincular uma conta">'+svg('plus')+'Vincular conta'+'</button>'+
       '<div class="ndp-add-campo" hidden>'+
         '<input type="text" class="ndp-add-input" placeholder="Vincular conta — nome ou código" autocomplete="off">'+
         '<div class="table-wrap scroll-list ndp-add-lista" style="position:absolute;top:100%;left:0;right:0;margin-top:6px;z-index:30;box-shadow:var(--shadow-lg);" hidden></div>'+
       '</div>'+
-    '</div>'+
+    '</div>')+
   '</div>';
 }
 function servPartsDasNotas(t){
@@ -4181,21 +4185,35 @@ function renderConfServ(tipo){
     var outras=l?SERV_CAT[tipo].filter(function(x){return x.lanc===l&&x.id!==c.id&&!x.travado;}):[];
     var acoes=!feito&&c.id==='geral'&&outras.length?'<div class="serv-div-acoes"><span class="hint">'+esc(l)+' é de '+esc(outras.map(function(x){return x.nome;}).join(' / '))+' —</span>'+
       outras.map(function(x){return '<button type="button" class="btn btn-sm" data-serv-sug="'+tipo+'|'+x.id+'" data-nome="'+esc(n.nome)+'">Colocar em '+esc(x.nome)+'</button>';}).join('')+'</div>':'';
-    return '<tr'+(feito?' class="feito"':'')+'><td><input type="checkbox" data-resolve-serv="'+esc(k)+'" data-hist-texto="'+esc(cfg.rotulo+' · nota '+n.numero+' · '+n.nome+' · lanç. '+(l||'—')+' (esperado '+c.lanc+' — '+c.nome+')')+'"'+(feito?' checked':'')+' aria-label="Marcar como corrigido"></td>'+
+    return '<tr'+(feito?' class="feito'+(k===servAnimar?' anima':'')+'"':'')+'><td><input type="checkbox" data-resolve-serv="'+esc(k)+'" data-hist-texto="'+esc(cfg.rotulo+' · nota '+n.numero+' · '+n.nome+' · lanç. '+(l||'—')+' (esperado '+c.lanc+' — '+c.nome+')')+'"'+(feito?' checked':'')+' aria-label="Marcar como corrigido"></td>'+
       '<td>'+esc(n.data)+'</td><td>'+esc(n.numero)+'</td><td class="wrap"><span class="risco">'+esc(n.nome)+'</span>'+acoes+'</td>'+
       '<td class="wrap">'+esc(c.nome)+'</td><td>'+esc(l||'—')+'</td><td><b>'+esc(c.lanc)+'</b></td><td class="num">'+brl(n.valor)+'</td></tr>';
   };
+  // igual Naturezas: filtro de situação, corrigidas descem pro fim riscadas e apagadas
+  var sit=servSit[tipo]||'',mostraPend=sit!=='corrigido'?pend:[],mostraCorr=sit!=='pendente'?corr:[];
   $('#confServDiv').innerHTML='<div class="card-head"><h3>Lançamento fora do padrão</h3></div>'+
     (!divs.length?'<p class="empty">Nenhuma nota fora do padrão.</p>':
-      '<div class="table-wrap" id="natListaServ"><table><thead><tr><th style="width:34px"></th><th>Data</th><th>Nota</th><th>'+capital(cfg.part)+'</th><th>Categoria</th><th>Lanç.</th><th>Esperado</th><th class="num">Valor</th></tr></thead><tbody>'+
-        pend.map(function(n){return linha(n,false);}).join('')+corr.map(function(n){return linha(n,true);}).join('')+
-      '</tbody></table></div>');
+      '<div class="chip-row" style="margin:0 0 12px"><span class="chip-lbl">Situação</span>'+
+        '<select class="select-compact" data-serv-sit="'+tipo+'" aria-label="Situação">'+
+          [['','Todas'],['pendente','Pendentes'],['corrigido','Corrigidos']].map(function(p){return '<option value="'+p[0]+'"'+(sit===p[0]?' selected':'')+'>'+p[1]+'</option>';}).join('')+
+        '</select></div>'+
+      (!mostraPend.length&&!mostraCorr.length?'<p class="empty">Nenhuma nota bate com o filtro.</p>':
+      '<div class="table-wrap" id="natListaServ" style="max-height:none;"><table><thead><tr><th style="width:34px"></th><th>Data</th><th>Nota</th><th>'+capital(cfg.part)+'</th><th>Categoria</th><th>Lanç.</th><th>Esperado</th><th class="num">Valor</th></tr></thead><tbody>'+
+        mostraPend.map(function(n){return linha(n,false);}).join('')+mostraCorr.map(function(n){return linha(n,true);}).join('')+
+      '</tbody></table></div>'));
+  servAnimar=null; // a animação só roda uma vez, na linha que acabou de ser marcada
 }
+var servAnimar=null,servSit={tomados:'',prestados:''};
+document.addEventListener('change',function(e){
+  var t=e.target.dataset&&e.target.dataset.servSit;if(!t)return;
+  servSit[t]=e.target.value;renderConfServ(t);
+});
 document.addEventListener('change',function(e){
   var r=e.target.dataset.resolveServ;if(!r)return;
   var key='serv:'+r,arr=emp().divResolvidos,pos=arr.indexOf(key);
   if(e.target.checked){if(pos<0)arr.push(key);}else if(pos>=0)arr.splice(pos,1);
   registrarHist('servdiv|'+r,e.target.dataset.histTexto||'',e.target.checked,'divergencia');
+  servAnimar=e.target.checked?r:null;
   save();renderConfServ(r.slice(0,r.indexOf('|')));
 });
 
