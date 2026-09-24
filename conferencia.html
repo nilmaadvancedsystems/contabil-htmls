@@ -1110,6 +1110,10 @@
 
       <!-- ============ IMPORTAÇÃO · PERÍODOS ============ -->
       <section id="view-imp-periodos" hidden>
+        <div class="steps" id="perModoSeg" role="group" aria-label="Visualização">
+          <button class="step-pill" data-per-modo="resumido" type="button">Resumido</button>
+          <button class="step-pill" data-per-modo="detalhado" type="button">Detalhado</button>
+        </div>
         <div class="per-resumo" id="perResumo"></div>
         <div id="perAlertas"></div>
         <div id="perDetalhe" hidden>
@@ -1311,7 +1315,7 @@
 (function(){
 "use strict";
 
-var APP_VERSION='beta 0.1.17';
+var APP_VERSION='beta 0.1.18';
 document.querySelectorAll('#verLogin,#verApp,#verDrawer').forEach(function(el){el.textContent='Versão: '+APP_VERSION;});
 
 /* ============================== ícones ============================== */
@@ -1900,8 +1904,6 @@ function go(v){
 function renderTopActions(){
   var html='';
   if(view==='mov-consulta')html='<button class="btn" type="button" data-csv="'+consultaTipo+'">'+svg('arrowDown')+'Baixar CSV</button>';
-  if(view==='imp-periodos')html='<div class="steps steps-topo" role="group" aria-label="Visualização">'+
-    [['resumido','Resumido'],['detalhado','Detalhado']].map(function(p){return '<button type="button" class="step-pill" data-per-modo="'+p[0]+'" aria-current="'+(perModo===p[0])+'">'+p[1]+'</button>';}).join('')+'</div>';
   if(view==='imp-balancete')html='<span class="toggle-row" title="Ligado: o balancete desta empresa é apagado sempre que alguém sai dela, pra próxima conferência começar com um balancete atualizado.">Apagar balancete ao sair'+switchAutoLimpar()+'</span>';
   $('#topbarActions').innerHTML=html;
 }
@@ -2851,6 +2853,7 @@ function renderPeriodos(){
     '<div class="chart-legend">'+series.map(function(s){return '<span><i class="chart-dot" style="background:'+s[2]+'"></i>'+s[0]+'</span>';}).join('')+'</div>';
   }
   $('#perDetalhe').hidden=perModo!=='detalhado';
+  $$('#perModoSeg .step-pill').forEach(function(b){b.setAttribute('aria-current',b.dataset.perModo===perModo?'true':'false');});
 }
 /* Períodos: Resumido (resumo + avisos) ou Detalhado (+ cobertura e notas por mês).
    Preferência de quem está usando, guardada só neste navegador. */
@@ -2859,7 +2862,7 @@ document.addEventListener('click',function(e){
   var b=e.target.closest('[data-per-modo]');if(!b)return;
   perModo=b.dataset.perModo;
   try{localStorage.setItem('conferencia-periodos-modo',perModo);}catch(err){}
-  renderTopActions();renderPeriodos();
+  renderPeriodos();
 });
 function renderImportadas(tipo){
   var box=$(tipo==='entradas'?'#impViewEntradas':'#impViewSaidas');
