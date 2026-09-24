@@ -1315,7 +1315,7 @@
 (function(){
 "use strict";
 
-var APP_VERSION='beta 0.1.18';
+var APP_VERSION='beta 0.1.19';
 document.querySelectorAll('#verLogin,#verApp,#verDrawer').forEach(function(el){el.textContent='Versão: '+APP_VERSION;});
 
 /* ============================== ícones ============================== */
@@ -1620,6 +1620,20 @@ function renderBusca(){
     }).join('')+'</div>'+
     (total>50?'<p class="hint" style="padding:4px 14px 10px">Mostrando 50 de '+total+'. Refine a busca.</p>':'');
 }
+// Enter: código exato da empresa (ex.: 58) entra direto; se a busca achou uma empresa só, entra nela
+$('#buscaTxt').addEventListener('keydown',function(e){
+  if(e.key!=='Enter')return;
+  e.preventDefault();
+  var q=this.value.trim().toLowerCase();if(!q)return;
+  var cands=candidatosBusca();
+  var alvo=cands.filter(function(c){return c[0]!=null&&String(c[0])===q;})[0];
+  if(!alvo){
+    var l=cands.filter(function(c){return c[1].toLowerCase().indexOf(q)>-1||(c[0]!=null&&String(c[0]).indexOf(q)>-1);});
+    if(l.length===1)alvo=l[0];
+    else{toast(l.length?'Mais de uma empresa com isso — escolha na lista.':'Nenhuma empresa com esse código ou nome.');return;}
+  }
+  entrar(alvo[1]);this.value='';$('#buscaLista').hidden=true;$('#buscaLista').innerHTML='';
+});
 $('#buscaTxt').addEventListener('input',renderBusca);
 $('#buscaTxt').addEventListener('focus',renderBusca);
 $('#buscaTxt').addEventListener('blur',function(){setTimeout(function(){$('#buscaLista').hidden=true;},150);});
