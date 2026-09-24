@@ -1103,7 +1103,7 @@
 (function(){
 "use strict";
 
-var APP_VERSION='beta 0.0.94';
+var APP_VERSION='beta 0.0.95';
 document.querySelectorAll('#verLogin,#verApp,#verDrawer').forEach(function(el){el.textContent='Versão: '+APP_VERSION;});
 
 /* ============================== ícones ============================== */
@@ -1427,8 +1427,8 @@ var SECOES=[
     {v:'imp-prestados',label:'Prestados',icon:'fileText'},
     {v:'imp-periodos',label:'Períodos',icon:'calendar'}]},
   {id:'cadastro',grupo:1,label:'Cadastro',icon:'link',itens:[
-    {v:'cad-cfop',label:'Configuração do CFOP',icon:'link'},
-    {v:'cad-servicos',label:'Serviços',icon:'fileText'}]},
+    {v:'cad-cfop',label:'NFEs',icon:'link'},
+    {v:'cad-servicos',label:'NFSEs',icon:'fileText'}]},
   {id:'movimento',grupo:2,label:'Movimento',icon:'repeat',itens:[
     {v:'mov-conferencia',label:'Conferência',icon:'checkCircle'},
     {v:'mov-naturezas',label:'Naturezas',icon:'list'},
@@ -3591,7 +3591,7 @@ function renderServImportados(tipo){
   var todas=emp()[cfg.campo]||[];
   box.closest('.card').hidden=!todas.length;
   if(!todas.length){box.innerHTML='';return;}
-  var total=0,iss=0,parts={};todas.forEach(function(n){total+=n.valor;iss+=(n.iss||0);parts[n.nome]=1;});
+  var total=0,iss=0,parts={};todas.forEach(function(n){total+=n.valor;iss+=(n.iss||0);parts[nomeNorm(n.nome)]=1;});
   var datas=todas.map(function(n){return n.data;}).sort(function(a,b){return dataOrdem(a)-dataOrdem(b);});
   box.innerHTML='<div class="stat-grid">'+
       '<div class="stat"><p class="stat-label">Notas</p><p class="stat-value">'+todas.length+'</p></div>'+
@@ -3606,14 +3606,14 @@ function renderServImportados(tipo){
     (todas.length>400?'<p class="hint">Mostrando 400 de '+todas.length+'. Veja todas em Movimento › Consulta.</p>':'');
 }
 /* ---- cadastro: conta padrão + participantes com conta própria ---- */
-function chaveContaServ(tipo,nome){return 'serv|'+tipo+'|'+(nome||'*');}
+function chaveContaServ(tipo,nome){return 'serv|'+tipo+'|'+(nome?nomeNorm(nome):'*');}
 function contasServ(tipo,nome){
   var p=contasDaNatureza(chaveContaServ(tipo,nome));
   return p.length?p:contasDaNatureza(chaveContaServ(tipo,'*'));
 }
 function lancPadraoServ(tipo){
   var cont={},out={};
-  listaTipo(tipo).forEach(function(n){var p=cont[n.nome]=cont[n.nome]||{};p[n.lanc]=(p[n.lanc]||0)+1;});
+  listaTipo(tipo).forEach(function(n){var k=nomeNorm(n.nome),p=cont[k]=cont[k]||{};p[n.lanc]=(p[n.lanc]||0)+1;});
   Object.keys(cont).forEach(function(nm){
     var best=null,bq=-1;
     Object.keys(cont[nm]).forEach(function(l){var q=cont[nm][l];if(q>bq||(q===bq&&l===SV[tipo].lancPadrao)){best=l;bq=q;}});
@@ -3649,7 +3649,7 @@ function renderCadServ(){
   $('#cadServTitulo').textContent=cfg.rotulo;
   $('#cadServSub').textContent='Todos os '+cfg.parts+' vão para a conta padrão. Adicione um '+cfg.part+' só quando ele tiver uma conta diferente. O lançamento de cada um é o que mais aparece nas notas dele (padrão '+cfg.lancPadrao+').';
   if(!emp().contas.length){box.innerHTML='<p class="empty">Importe o balancete para vincular as contas.</p>';return;}
-  var qtd={};listaTipo(t).forEach(function(n){qtd[n.nome]=(qtd[n.nome]||0)+1;});
+  var qtd={};listaTipo(t).forEach(function(n){var k=nomeNorm(n.nome);qtd[k]=(qtd[k]||0)+1;});
   var padrao=lancPadraoServ(t),lista=(emp().servPart&&emp().servPart[t])||[];
   box.innerHTML='<div class="ndp-list">'+ndpItemHtml(chaveContaServ(t,'*'),'Conta padrão — todos os '+cfg.parts,'Vale para qualquer '+cfg.part+' que não esteja na lista abaixo.')+'</div>'+
     '<div class="serv-parts-head"><h4>'+capital(cfg.parts)+' com conta própria</h4>'+
@@ -3661,7 +3661,7 @@ function renderCadServ(){
         '</div>'+
       '</div></div>'+
     (lista.length?'<div class="ndp-list">'+lista.map(function(nm){
-      var sub=(qtd[nm]||0)+' nota(s)'+(padrao[nm]?' · lançamento '+esc(padrao[nm])+(padrao[nm]!==cfg.lancPadrao?' (diferente do padrão '+cfg.lancPadrao+')':''):'')+
+      var pk=nomeNorm(nm),sub=(qtd[pk]||0)+' nota(s)'+(padrao[pk]?' · lançamento '+esc(padrao[pk])+(padrao[pk]!==cfg.lancPadrao?' (diferente do padrão '+cfg.lancPadrao+')':''):'')+
         (contasDaNatureza(chaveContaServ(t,nm)).length?'':' · sem conta própria ainda — usando a padrão');
       return ndpItemHtml(chaveContaServ(t,nm),nm,sub,t+'|'+nm);
     }).join('')+'</div>':'<p class="empty">Nenhum '+cfg.part+' com conta própria — todos vão para a conta padrão.</p>');
@@ -3684,14 +3684,14 @@ document.addEventListener('click',function(e){
 });
 function servRenderPartLista(w){
   var t=w.dataset.servAddPart,qRaw=w.querySelector('.serv-part-input').value.trim(),q=nomeNorm(qRaw);
-  var ja=(emp().servPart&&emp().servPart[t])||[],cont={};
-  listaTipo(t).forEach(function(n){cont[n.nome]=(cont[n.nome]||0)+1;});
-  var nomes=Object.keys(cont).filter(function(nm){return ja.indexOf(nm)<0&&(!q||nomeNorm(nm).indexOf(q)>-1);}).sort().slice(0,50);
-  var exato=qRaw&&Object.keys(cont).some(function(nm){return nomeNorm(nm)===q;});
+  var ja=((emp().servPart&&emp().servPart[t])||[]).map(nomeNorm),cont={},exib={};
+  listaTipo(t).forEach(function(n){var k=nomeNorm(n.nome);cont[k]=(cont[k]||0)+1;if(!exib[k])exib[k]=n.nome;});
+  var nomes=Object.keys(cont).filter(function(k){return ja.indexOf(k)<0&&(!q||k.indexOf(q)>-1);}).sort().slice(0,50);
+  var exato=qRaw&&cont[q]!=null;
   var box=w.querySelector('.serv-part-lista');box.hidden=false;
   box.innerHTML='<div class="emp-list">'+
-    nomes.map(function(nm){return '<button type="button" class="emp-item" data-serv-escolher="'+esc(nm)+'"><span class="emp-txt"><span class="emp-nome">'+esc(nm)+'</span><span class="emp-reg">'+cont[nm]+' nota(s)</span></span></button>';}).join('')+
-    (qRaw&&!nomes.length&&!exato&&ja.indexOf(qRaw.toUpperCase())<0?'<button type="button" class="emp-item" data-serv-escolher="'+esc(qRaw.toUpperCase())+'"><span class="emp-txt"><span class="emp-nome">Adicionar "'+esc(qRaw.toUpperCase())+'"</span><span class="emp-reg">ainda sem notas importadas</span></span></button>':'')+
+    nomes.map(function(nm){return '<button type="button" class="emp-item" data-serv-escolher="'+esc(exib[nm])+'"><span class="emp-txt"><span class="emp-nome">'+esc(exib[nm])+'</span><span class="emp-reg">'+cont[nm]+' nota(s)</span></span></button>';}).join('')+
+    (qRaw&&!nomes.length&&!exato&&ja.indexOf(q)<0?'<button type="button" class="emp-item" data-serv-escolher="'+esc(qRaw.toUpperCase())+'"><span class="emp-txt"><span class="emp-nome">Adicionar "'+esc(qRaw.toUpperCase())+'"</span><span class="emp-reg">ainda sem notas importadas</span></span></button>':'')+
     (!nomes.length&&!qRaw?'<p class="empty" style="padding:10px 12px">Nenhum '+SV[t].part+' nas notas importadas — digite o nome.</p>':'')+
   '</div>';
 }
@@ -3716,10 +3716,10 @@ function renderConfServ(tipo){
   var notas=listaTipo(tipo).filter(function(n){var t=dataOrdem(n.data);return (!de||t>=de)&&(!ate||t<=ate)&&(!ccState.meses.length||ccState.meses.indexOf(n.comp)>-1);});
   var padrao=lancPadraoServ(tipo),res={};emp().divResolvidos.forEach(function(k){res[k]=1;});
   var chRes=function(n){return 'serv:'+tipo+'|'+chaveServ(n);};
-  var divs=notas.filter(function(n){return padrao[n.nome]&&n.lanc!==padrao[n.nome];});
+  var divs=notas.filter(function(n){var p=padrao[nomeNorm(n.nome)];return p&&n.lanc!==p;});
   var pend=divs.filter(function(n){return !res[chRes(n)];}),corr=divs.filter(function(n){return res[chRes(n)];});
   var tot={valor:0,iss:0,issRet:0,irrf:0,inss:0},parts={};
-  notas.forEach(function(n){tot.valor+=n.valor;tot.iss+=n.iss||0;tot.issRet+=n.issRet||0;tot.irrf+=n.irrf||0;tot.inss+=n.inss||0;parts[n.nome]=1;});
+  notas.forEach(function(n){tot.valor+=n.valor;tot.iss+=n.iss||0;tot.issRet+=n.issRet||0;tot.irrf+=n.irrf||0;tot.inss+=n.inss||0;parts[nomeNorm(n.nome)]=n.nome;});
   var temIss=notas.some(function(n){return n.iss!=null;});
   var st=function(r,v,cls){return '<div class="stat"><p class="stat-label">'+r+'</p><p class="stat-value'+(cls?' '+cls:'')+'">'+v+'</p></div>';};
   $('#confServStats').innerHTML=
@@ -3734,19 +3734,19 @@ function renderConfServ(tipo){
     var cs=contasServ(tipo,n.nome).slice().sort();
     var k=cs.join('+')||'__sem';
     var g=grupos[k]=grupos[k]||{contas:cs,total:0,parts:{},qtd:0};
-    g.total+=n.valor;g.parts[n.nome]=1;g.qtd++;
+    g.total+=n.valor;g.parts[nomeNorm(n.nome)]=n.nome;g.qtd++;
   });
   var ks=Object.keys(grupos).sort();
   $('#confServBal').innerHTML=!ks.length?'<p class="empty">Nenhuma nota no período.</p>':
     '<div class="table-wrap" style="max-height:none;"><table class="table-compact"><thead><tr><th>Conta(s)</th><th>'+capital(cfg.parts)+'</th>'+
     '<th class="num">Soma das notas</th><th class="num">Saldo do balancete</th><th class="num">Situação</th></tr></thead><tbody>'+
     ks.map(function(k){
-      var g=grupos[k],nomes=Object.keys(g.parts);
+      var g=grupos[k],nomes=Object.keys(g.parts).map(function(x){return g.parts[x];});
       var titulo=g.contas.length?g.contas.map(function(c){var nm=nomeConta(c);return c+(nm?' — '+nm:'');}).join(' + '):'Sem conta vinculada';
       var saldo=null,falta=g.contas.some(function(c){return saldoAtualizado(c)==null;});
       if(g.contas.length&&!falta)saldo=g.contas.reduce(function(s,c){return s+saldoAtualizado(c);},0);
       var sit;
-      if(!g.contas.length)sit='<span class="badge badge-neutral">Configure em Cadastro › Serviços</span>';
+      if(!g.contas.length)sit='<span class="badge badge-neutral">Configure em Cadastro › NFSEs</span>';
       else if(Math.abs(g.total)<0.005)sit='<span class="badge badge-neutral">0,00</span>';
       else if(saldo==null)sit='<span class="badge badge-neutral">Conta fora do balancete lido</span>';
       else{var dif=g.total-saldo;sit=Math.abs(dif)<0.01?'<span class="badge badge-ok">Ok</span>':'<span class="badge badge-bad">'+brl(dif)+'</span>';}
@@ -3758,14 +3758,14 @@ function renderConfServ(tipo){
   // lançamento fora do padrão do participante
   var linha=function(n,feito){
     var k=tipo+'|'+chaveServ(n);
-    return '<tr'+(feito?' class="feito"':'')+'><td><input type="checkbox" data-resolve-serv="'+esc(k)+'" data-hist-texto="'+esc(cfg.rotulo+' · nota '+n.numero+' · '+n.nome+' · lanç. '+n.lanc+' (padrão '+padrao[n.nome]+')')+'"'+(feito?' checked':'')+' aria-label="Marcar como corrigido"></td>'+
+    return '<tr'+(feito?' class="feito"':'')+'><td><input type="checkbox" data-resolve-serv="'+esc(k)+'" data-hist-texto="'+esc(cfg.rotulo+' · nota '+n.numero+' · '+n.nome+' · lanç. '+n.lanc+' (padrão '+padrao[nomeNorm(n.nome)]+')')+'"'+(feito?' checked':'')+' aria-label="Marcar como corrigido"></td>'+
       '<td>'+esc(n.data)+'</td><td>'+esc(n.numero)+'</td><td class="wrap"><span class="risco">'+esc(n.nome)+'</span></td>'+
-      '<td>'+esc(n.lanc)+'</td><td>'+esc(padrao[n.nome])+'</td><td class="num">'+brl(n.valor)+'</td></tr>';
+      '<td>'+esc(n.lanc)+'</td><td>'+esc(padrao[nomeNorm(n.nome)])+'</td><td class="num">'+brl(n.valor)+'</td></tr>';
   };
   var fora=Object.keys(padrao).filter(function(nm){return parts[nm]&&padrao[nm]!==cfg.lancPadrao;});
   $('#confServDiv').innerHTML='<div class="card-head"><h3>Lançamento fora do padrão do '+cfg.part+'</h3></div>'+
     '<p class="sub">O padrão de cada '+cfg.part+' é o lançamento que mais aparece nas notas dele (no empate vale o '+cfg.lancPadrao+'). Marque o que já foi corrigido.</p>'+
-    (fora.length?'<p class="hint" style="margin:-8px 0 12px">'+capital(cfg.parts)+' cujo lançamento mais usado não é o '+cfg.lancPadrao+': '+esc(fora.map(function(nm){return nm+' ('+padrao[nm]+')';}).join(', '))+'.</p>':'')+
+    (fora.length?'<p class="hint" style="margin:-8px 0 12px">'+capital(cfg.parts)+' cujo lançamento mais usado não é o '+cfg.lancPadrao+': '+esc(fora.map(function(nm){return (parts[nm]||nm)+' ('+padrao[nm]+')';}).join(', '))+'.</p>':'')+
     (!divs.length?'<p class="empty">Nenhuma nota fora do padrão.</p>':
       '<div class="table-wrap" id="natListaServ"><table><thead><tr><th style="width:34px"></th><th>Data</th><th>Nota</th><th>'+capital(cfg.part)+'</th><th>Lanç.</th><th>Padrão</th><th class="num">Valor</th></tr></thead><tbody>'+
         pend.map(function(n){return linha(n,false);}).join('')+corr.map(function(n){return linha(n,true);}).join('')+
