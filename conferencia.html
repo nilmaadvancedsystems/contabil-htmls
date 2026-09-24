@@ -862,6 +862,35 @@
   .btn.vc-conferido-on{background:var(--danger);border-color:var(--danger);color:#FFFFFF;}
   .btn.vc-conferido-on:hover{filter:brightness(1.08);}
   .btn.vc-conferido-on svg{width:14px;height:14px;}
+
+  /* verificar por conta: resumo com a conta em destaque */
+  .vc-resumo{border:1px solid var(--border);border-radius:6px;background:var(--surface);overflow:hidden;}
+  .vc-resumo-conta{padding:14px 18px;border-bottom:1px solid var(--border);}
+  .vc-resumo-rot{margin:0;font-size:12px;color:var(--ink-muted);}
+  .vc-resumo-nome{margin:3px 0 0;font-size:17px;color:var(--ink);line-height:1.3;}
+  .vc-resumo-nome b{font-weight:700;font-variant-numeric:tabular-nums;}
+  .vc-resumo-fonte{margin:4px 0 0;font-size:12.5px;color:var(--ink-muted);}
+  .vc-resumo-nums{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));}
+  .vc-num{padding:14px 18px;border-right:1px solid var(--border);min-width:0;}
+  .vc-num:last-child{border-right:none;}
+  .vc-num-rot{margin:0;font-size:12px;color:var(--ink-muted);}
+  .vc-num-val{margin:4px 0 0;font-size:22px;font-weight:600;color:var(--ink);font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .vc-num.bad .vc-num-val{color:var(--danger);}
+  .vc-num.ok .vc-num-val{color:var(--success);}
+  .vc-resumo-comp{margin:0;padding:10px 18px;border-top:1px solid var(--border);font-size:13px;color:var(--ink-muted);display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 10px;}
+  .vc-resumo-comp > span:first-child{color:var(--ink-muted);margin-right:4px;}
+  .vc-resumo-comp b{color:var(--ink);font-weight:600;font-variant-numeric:tabular-nums;}
+  .vc-sep{color:var(--border-strong,var(--ink-muted));}
+  @media (max-width:640px){.vc-resumo-nums{grid-template-columns:1fr;}.vc-num{border-right:none;border-bottom:1px solid var(--border);}.vc-num:last-child{border-bottom:none;}}
+
+  /* verificar por conta: histórico quebrado em colunas */
+  table.vc-tabela td{vertical-align:middle;}
+  table.vc-tabela th,table.vc-tabela td{padding-left:12px;padding-right:12px;}
+  table.vc-tabela .vc-nw{white-space:nowrap;font-variant-numeric:tabular-nums;}
+  table.vc-tabela .vc-nome{color:var(--ink);font-weight:500;max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  table.vc-tabela .vc-onde{white-space:nowrap;color:var(--ink);}
+  table.vc-tabela .vc-onde.vazio{color:var(--ink-muted);font-style:italic;}
+  table.vc-tabela .vc-mut{color:var(--ink-muted);max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 </style>
 </head>
 <body>
@@ -1285,7 +1314,7 @@
 (function(){
 "use strict";
 
-var APP_VERSION='beta 0.1.14';
+var APP_VERSION='beta 0.1.15';
 document.querySelectorAll('#verLogin,#verApp,#verDrawer').forEach(function(el){el.textContent='Versão: '+APP_VERSION;});
 
 /* ============================== ícones ============================== */
@@ -3559,6 +3588,25 @@ function vcNumerosDoHistorico(txt,serv){
   // NFS-e costuma ter número comprido (até 15 dígitos); só não confunde com CPF (11) nem CNPJ (14)
   return (txt.match(/\d{3,}/g)||[]).filter(function(t){return serv?(t.length<=15&&t.length!==11&&t.length!==14):t.length<11;});
 }
+function vcPartesHistorico(txt){
+  var t=String(txt||'').replace(/\s+/g,' ').trim(),p={nota:'',doc:'',nome:'',contra:'',lanc:''};
+  var m=t.match(/(\d{1,15})\s*-\s*(\d{14}|\d{11})\s*-\s*(.+)$/);
+  if(m){p.nota=m[1].replace(/^0+(?=\d)/,'');p.doc=m[2];p.nome=m[3].trim();}
+  var c=t.match(/^(.*?)\s(\d{4,6})\s+pelo valor/i);
+  if(c){p.contra=c[1].trim();p.lanc=c[2];}
+  return p;
+}
+function vcOndeNota(numero,nome){
+  var k=String(numero).replace(/^0+(?=\d)/,''),achados=[],nn=nomeNorm(nome||'');
+  var olhar=function(lista,rot){(lista||[]).forEach(function(n){if(String(n.numero||'').replace(/^0+(?=\d)/,'')===k)achados.push({n:n,rot:rot(n)});});};
+  olhar(listaTipo('tomados'),function(n){return 'Tomados · '+catServ('tomados',catDoPart('tomados',n.nome)).nome;});
+  olhar(listaTipo('prestados'),function(n){return 'Prestados · '+catServ('prestados',catDoPart('prestados',n.nome)).nome;});
+  olhar(emp().entradas,function(n){return 'Entrada · CFOP '+n.cfop;});
+  olhar(emp().saidas,function(n){return 'Saída · CFOP '+n.cfop;});
+  if(!achados.length)return '';
+  var mesmo=achados.filter(function(a){return nn&&(nomeNorm(a.n.nome).indexOf(nn.slice(0,12))>-1||nn.indexOf(nomeNorm(a.n.nome).slice(0,12))>-1);})[0];
+  return (mesmo||achados[0]).rot;
+}
 function vcMostrarResultado(mostrar){
   $('#vcResultadoCard').hidden=!mostrar;
   $('#vcFormCard').hidden=!!mostrar; // com resultado na tela, a importação sai e fica só o Reimportar
@@ -3749,7 +3797,13 @@ $('#vcBtConferir').onclick=function(){
       });
       var somaRazao=vc.razaoLinhas.reduce(function(s,l){return s+l.valor;},0);
       var somaFiscal=alvo.reduce(function(s,n){return s+n.valor;},0);
-      vc.resultado={faltando:faltando,duplicada:duplicada,aMais:aMais,somaRazao:somaRazao,somaFiscal:somaFiscal,alvo:alvo,serv:vc.servTipo};
+      var fonte;
+      if(vc.servTipo){
+        var cats=[];alvo.forEach(function(n){var c=catServ(vc.servTipo,catDoPart(vc.servTipo,n.nome)).nome;if(cats.indexOf(c)<0)cats.push(c);});
+        fonte=SV[vc.servTipo].rotulo+(cats.length?' · '+cats.join(', '):'');
+      }else fonte='CFOP '+gr.cfops.slice().sort(function(a,b){return a.localeCompare(b,undefined,{numeric:true});}).join(', ')+(gr.desc?' — '+gr.desc:'');
+      vc.resultado={faltando:faltando,duplicada:duplicada,aMais:aMais,somaRazao:somaRazao,somaFiscal:somaFiscal,alvo:alvo,serv:vc.servTipo,
+        conta:{codigo:vc.conta.codigo,nome:vc.conta.nome},fonte:fonte};
       var rotConta='Conta '+vc.conta.codigo+' — '+vc.conta.nome;
       if(!faltando.length&&!duplicada.length&&!aMais.length)verifGravar(vc.conta.codigo,'ok',rotConta+' · relatório sem pendências');
       else if(verifEstado(vc.conta.codigo)==='ok')verifGravar(vc.conta.codigo,null,rotConta+' · voltou a ter pendências');
@@ -3776,25 +3830,30 @@ function vcRenderResultado(){
   var sv=r.serv,rotSv=sv?SV[sv].rotulo.toLowerCase():'';
   var catSv=function(n){return catServ(sv,catDoPart(sv,n.nome)).nome;};
   var qtdPend=r.faltando.length+r.duplicada.length+r.aMais.length,limpo=!qtdPend;
+  var dif=r.somaFiscal-r.somaRazao,zero=Math.abs(dif)<0.005,conta=r.conta||vc.conta||{codigo:'',nome:''};
+  var numero=function(rot,valor,cls){return '<div class="vc-num'+(cls?' '+cls:'')+'"><p class="vc-num-rot">'+rot+'</p><p class="vc-num-val">'+valor+'</p></div>';};
+  var comp=[];
+  if(r.faltando.length)comp.push('Faltando no relatório <b>+ '+brl(somaFaltando)+'</b>');
+  if(r.duplicada.length)comp.push('Duplicadas <b>− '+brl(somaDuplicada)+'</b>');
+  if(r.aMais.length)comp.push('A mais no relatório <b>− '+brl(somaAMais)+'</b>');
+  $('#vcStats').className='vc-resumo';
   $('#vcStats').innerHTML=
-    '<div class="stat"><p class="stat-label">Relatório da conta</p><p class="stat-value">'+brl(r.somaRazao)+'</p></div>'+
-    '<div class="stat"><p class="stat-label">Fiscal ('+(sv?rotSv:'entradas/saídas')+')</p><p class="stat-value">'+brl(r.somaFiscal)+'</p></div>'+
-    '<div class="stat'+(Math.abs(r.somaFiscal-r.somaRazao)<0.005?' success':'')+'"><p class="stat-label">Diferença</p><p class="stat-value">'+brl(r.somaFiscal-r.somaRazao)+'</p></div>';
+    '<div class="vc-resumo-conta"><p class="vc-resumo-rot">Conta contábil</p>'+
+      '<p class="vc-resumo-nome"><b>'+esc(conta.codigo)+'</b> — '+esc(conta.nome)+'</p>'+
+      (r.fonte?'<p class="vc-resumo-fonte">'+esc(r.fonte)+'</p>':'')+'</div>'+
+    '<div class="vc-resumo-nums">'+
+      numero('Relatório da conta',brl(r.somaRazao))+
+      numero('Notas fiscais',brl(r.somaFiscal))+
+      numero('Diferença',brl(dif),zero?'ok':'bad')+
+    '</div>'+
+    (comp.length?'<p class="vc-resumo-comp"><span>Composição da diferença</span>'+comp.join('<span class="vc-sep">·</span>')+'</p>':'');
   $('#vcBtReimportar').hidden=limpo;$('#vcBtOk').hidden=!limpo;
   if(limpo){
     $('#vcResultado').innerHTML='<div class="alert" style="border-color:var(--success);background:var(--success-soft);color:var(--success-ink);margin:16px 0 0">'+svg('checkCircle')+
       '<div><p class="alert-title">Nenhuma pendência nessa conta</p><p class="alert-text">Todas as notas bateram com o relatório. A conta fica <b>Ok</b> na Conferência.</p></div></div>';
     return;
   }
-  // totalizador só com o que tem valor
-  var partes=[];
-  if(r.faltando.length)partes.push('<span>Faltando <b class="num" style="color:var(--success-ink)">+ '+brl(somaFaltando)+'</b></span>');
-  if(r.duplicada.length)partes.push('<span>Duplicadas <b class="num" style="color:var(--danger-ink)">− '+brl(somaDuplicada)+'</b></span>');
-  if(r.aMais.length)partes.push('<span>A mais <b class="num" style="color:var(--danger-ink)">− '+brl(somaAMais)+'</b></span>');
-  var html='<div class="card" style="background:var(--surface-2);box-shadow:none;margin:16px 0 0;padding:14px 18px;">'+
-    '<div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;font-size:14px;">'+partes.join('')+
-      '<span style="color:var(--ink-faint)">=</span><span>Diferença <b class="num" style="font-size:16px;color:var(--ink)">'+brl(totalizador)+'</b></span></div>'+
-  '</div>';
+  var html='';
   var conferido=verifEstado(vc.conta.codigo)==='conferido';
   var secao=function(titulo,soma,sub,corpo){
     return '<div class="vc-secao"><h4>'+titulo+' — <span style="color:var(--ink-muted);font-weight:600">'+brl(soma)+'</span></h4><p class="sub">'+sub+'</p>'+corpo+'</div>';
@@ -3816,8 +3875,15 @@ function vcRenderResultado(){
       '</tbody></table></div>'+vcAvisoTruncado(r.duplicada.length)):'')+
     (r.aMais.length?secao('A mais no relatório ('+r.aMais.length+')',somaAMais,
       sv?'Linha do relatório que não bateu com nenhuma nota de '+rotSv+' ligada a essa conta.':'Linha do relatório que não bateu com nenhuma nota de Entradas/Saídas desse CFOP.',
-      '<div class="table-wrap"><table><thead><tr><th>Data</th><th>Histórico</th><th class="num">Valor</th></tr></thead><tbody>'+
-        r.aMais.slice(0,VC_LIMITE_LINHAS).map(function(l){return '<tr class="bad"><td>'+esc(l.data)+'</td><td class="wrap">'+esc(l.txt)+'</td><td class="num">'+brl(l.valor)+'</td></tr>';}).join('')+
+      '<div class="table-wrap"><table class="vc-tabela"><thead><tr><th>Data</th><th>Nota</th><th>Participante</th><th>Onde a nota está</th><th>Contrapartida</th><th class="num">Valor</th></tr></thead><tbody>'+
+        r.aMais.slice(0,VC_LIMITE_LINHAS).map(function(l){
+          var p=vcPartesHistorico(l.txt),entendeu=p.nome||p.nota,onde=p.nota?vcOndeNota(p.nota,p.nome):'';
+          return '<tr class="bad" title="'+esc(l.txt)+'"><td class="vc-nw">'+esc(l.data)+'</td>'+
+            (entendeu?'<td class="vc-nw">'+esc(p.nota||'—')+'</td><td class="vc-nome">'+esc(p.nome||'—')+'</td>':
+              '<td class="vc-nw">—</td><td class="vc-nome">'+esc(l.txt)+'</td>')+
+            '<td class="vc-onde'+(onde?'':' vazio')+'">'+esc(onde||(p.nota?'Não está nas notas importadas':'—'))+'</td>'+
+            '<td class="vc-mut" title="'+esc((p.contra||'')+(p.lanc?' · lançamento '+p.lanc:''))+'">'+esc(p.contra?p.contra+(p.lanc?' · '+p.lanc:''):'—')+'</td><td class="num">'+brl(l.valor)+'</td></tr>';
+        }).join('')+
       '</tbody></table></div>'+vcAvisoTruncado(r.aMais.length)):'')+
   '</div>';
   $('#vcResultado').innerHTML=html;
