@@ -888,6 +888,10 @@
   table.vc-tabela .vc-onde{white-space:nowrap;color:var(--ink);}
   table.vc-tabela .vc-onde.vazio{color:var(--ink-muted);font-style:italic;}
   table.vc-tabela .vc-mut{color:var(--ink-muted);max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+
+  /* seletor Resumido/Detalhado no canto superior direito */
+  .steps.steps-topo{margin:0;}
+  #perDetalhe .painel{margin-top:16px;}
 </style>
 </head>
 <body>
@@ -1108,18 +1112,14 @@
       <section id="view-imp-periodos" hidden>
         <div class="per-resumo" id="perResumo"></div>
         <div id="perAlertas"></div>
-        <div class="card">
-          <h3>Cobertura por mês</h3>
-          <div id="perGrade"></div>
-        </div>
-        <div class="dash-grid">
+        <div id="perDetalhe" hidden>
+          <div class="card">
+            <h3>Cobertura por mês</h3>
+            <div id="perGrade"></div>
+          </div>
           <div class="painel">
             <div class="painel-head"><p class="painel-titulo">Notas por mês</p><p class="painel-sub">quantidade importada</p></div>
             <div id="perGrafico"></div>
-          </div>
-          <div class="painel">
-            <div class="painel-head"><p class="painel-titulo">Últimas importações</p></div>
-            <div id="perHist"></div>
           </div>
         </div>
       </section>
@@ -1311,7 +1311,7 @@
 (function(){
 "use strict";
 
-var APP_VERSION='beta 0.1.16';
+var APP_VERSION='beta 0.1.17';
 document.querySelectorAll('#verLogin,#verApp,#verDrawer').forEach(function(el){el.textContent='Versão: '+APP_VERSION;});
 
 /* ============================== ícones ============================== */
@@ -1900,6 +1900,8 @@ function go(v){
 function renderTopActions(){
   var html='';
   if(view==='mov-consulta')html='<button class="btn" type="button" data-csv="'+consultaTipo+'">'+svg('arrowDown')+'Baixar CSV</button>';
+  if(view==='imp-periodos')html='<div class="steps steps-topo" role="group" aria-label="Visualização">'+
+    [['resumido','Resumido'],['detalhado','Detalhado']].map(function(p){return '<button type="button" class="step-pill" data-per-modo="'+p[0]+'" aria-current="'+(perModo===p[0])+'">'+p[1]+'</button>';}).join('')+'</div>';
   if(view==='imp-balancete')html='<span class="toggle-row" title="Ligado: o balancete desta empresa é apagado sempre que alguém sai dela, pra próxima conferência começar com um balancete atualizado.">Apagar balancete ao sair'+switchAutoLimpar()+'</span>';
   $('#topbarActions').innerHTML=html;
 }
@@ -2848,16 +2850,17 @@ function renderPeriodos(){
     }).join('')+'</div>'+
     '<div class="chart-legend">'+series.map(function(s){return '<span><i class="chart-dot" style="background:'+s[2]+'"></i>'+s[0]+'</span>';}).join('')+'</div>';
   }
-  // últimas importações
-  var ult=hist.slice(-6).reverse();
-  $('#perHist').innerHTML=!ult.length?'<p class="empty">Nenhuma importação registrada.</p>':
-    '<ul class="per-hist">'+ult.map(function(x){
-      var exc=x.acao==='excluido';
-      var acao=exc?(x.auto?'excluído ao sair':'excluído'):(x.modo==='sobreposto'?'sobreposto':(x.forcado?'importado com aviso':'importado'));
-      return '<li><span class="per-hist-dot'+(exc?' exc':'')+'"></span><span><b>'+esc(x.tipo)+'</b> '+acao+' · '+x.qtd+' '+(x.tipo==='Balancete'?'conta(s)':'nota(s)')+
-        '<br><span class="hint" style="margin:0">'+esc(dataHora(x.ts))+'</span></span></li>';
-    }).join('')+'</ul>';
+  $('#perDetalhe').hidden=perModo!=='detalhado';
 }
+/* Períodos: Resumido (resumo + avisos) ou Detalhado (+ cobertura e notas por mês).
+   Preferência de quem está usando, guardada só neste navegador. */
+var perModo=(function(){try{return localStorage.getItem('conferencia-periodos-modo')||'resumido';}catch(e){return 'resumido';}})();
+document.addEventListener('click',function(e){
+  var b=e.target.closest('[data-per-modo]');if(!b)return;
+  perModo=b.dataset.perModo;
+  try{localStorage.setItem('conferencia-periodos-modo',perModo);}catch(err){}
+  renderTopActions();renderPeriodos();
+});
 function renderImportadas(tipo){
   var box=$(tipo==='entradas'?'#impViewEntradas':'#impViewSaidas');
   if(!atual||!box)return;
