@@ -1263,7 +1263,7 @@
 (function(){
 "use strict";
 
-var APP_VERSION='beta 0.1.10';
+var APP_VERSION='beta 0.1.11';
 document.querySelectorAll('#verLogin,#verApp,#verDrawer').forEach(function(el){el.textContent='Versão: '+APP_VERSION;});
 
 /* ============================== ícones ============================== */
@@ -1632,12 +1632,15 @@ function primeiraImportacaoPendente(){
   if(!emp().entradas.length)return 'imp-entradas';
   return 'imp-saidas';
 }
-// menu lateral FIXO = seções; clicar volta pra última página aberta daquela seção
+// menu lateral FIXO = seções; clicar sempre abre a primeira página da seção já na primeira
+// aba interna dela. As outras páginas (menu de cima) continuam onde a pessoa parou.
 document.addEventListener('click',function(e){
   var b=e.target.closest('#subnav [data-sec]');if(!b)return;
   if(b.classList.contains('is-disabled')){toast(MSG_CADASTRO_BLOQ);return;}
-  var s=secaoPorId(b.dataset.sec);
-  go(ultimaPorSecao[s.id]||s.itens[0].v);
+  var v=secaoPorId(b.dataset.sec).itens[0].v;
+  if(v==='cad-cfop')cadTipo='entradas';
+  if(v==='mov-conferencia')confAbaAtual='geral';
+  go(v);
 });
 document.addEventListener('click',function(e){
   var b=e.target.closest('[data-ir]');if(!b)return;
