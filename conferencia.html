@@ -790,6 +790,14 @@
     .per-nome,.per-periodo{grid-column:1/-1;}
     .per-num{text-align:left;}
   }
+
+  /* conferência de serviços: indicadores numa linha só */
+  #confServStats{display:flex;}
+  #confServStats .stat{flex:1 1 0;min-width:0;}
+  #confServStats .stat:first-child{flex:1.7 1 0;}
+  #confServStats .stat-label{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  #confServStats .stat-value{font-size:20px;white-space:nowrap;}
+  @media (max-width:900px){#confServStats{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));}}
 </style>
 </head>
 <body>
@@ -1205,7 +1213,7 @@
 (function(){
 "use strict";
 
-var APP_VERSION='beta 0.1.3';
+var APP_VERSION='beta 0.1.4';
 document.querySelectorAll('#verLogin,#verApp,#verDrawer').forEach(function(el){el.textContent='Versão: '+APP_VERSION;});
 
 /* ============================== ícones ============================== */
@@ -4060,10 +4068,10 @@ function renderConfServ(tipo){
   var temIss=notas.some(function(n){return n.iss!=null;});
   var st=function(r,v,cls){return '<div class="stat"><p class="stat-label">'+r+'</p><p class="stat-value'+(cls?' '+cls:'')+'">'+v+'</p></div>';};
   $('#confServStats').innerHTML=
-    st(cfg.rotulo+' no período',brl(tot.valor),tipo==='prestados'?'cor-saida':'cor-entrada')+
+    st((tipo==='prestados'?'Prestados':'Tomados')+' no período',brl(tot.valor),tipo==='prestados'?'cor-saida':'cor-entrada')+
     (temIss?st('ISS do período',brl(tot.iss))+st('ISS retido',brl(tot.issRet)):'')+
     (tot.irrf?st('IRRF retido',brl(tot.irrf)):'')+(tot.inss?st('INSS retido',brl(tot.inss)):'')+
-    st('Notas no período',notas.length)+st(capital(cfg.parts),Object.keys(parts).length)+
+    st('Notas',notas.length)+st(capital(cfg.parts),Object.keys(parts).length)+
     st('Fora do padrão',pend.length);
   // conciliação: soma das notas por conta da categoria × saldo do balancete
   // (categorias que dividem a mesma conta — ex.: Telefone e Internet — somam juntas)
@@ -4106,8 +4114,6 @@ function renderConfServ(tipo){
       '<td class="wrap">'+esc(c.nome)+'</td><td>'+esc(l||'—')+'</td><td><b>'+esc(c.lanc)+'</b></td><td class="num">'+brl(n.valor)+'</td></tr>';
   };
   $('#confServDiv').innerHTML='<div class="card-head"><h3>Lançamento fora do padrão</h3></div>'+
-    '<p class="sub">Cada '+cfg.part+' tem que estar no lançamento da categoria dele (Cadastro › NFSEs): '+
-      esc(SERV_CAT[tipo].map(function(c){return c.nome+' '+c.lanc;}).join(' · '))+'. Marque o que já foi corrigido.</p>'+
     (!divs.length?'<p class="empty">Nenhuma nota fora do padrão.</p>':
       '<div class="table-wrap" id="natListaServ"><table><thead><tr><th style="width:34px"></th><th>Data</th><th>Nota</th><th>'+capital(cfg.part)+'</th><th>Categoria</th><th>Lanç.</th><th>Esperado</th><th class="num">Valor</th></tr></thead><tbody>'+
         pend.map(function(n){return linha(n,false);}).join('')+corr.map(function(n){return linha(n,true);}).join('')+
