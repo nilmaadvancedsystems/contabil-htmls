@@ -1293,7 +1293,7 @@
 (function(){
 "use strict";
 
-var APP_VERSION='beta 0.1.23';
+var APP_VERSION='beta 0.1.24';
 document.querySelectorAll('#verLogin,#verApp,#verDrawer').forEach(function(el){el.textContent='Versão: '+APP_VERSION;});
 
 /* ============================== ícones ============================== */
@@ -2984,7 +2984,7 @@ function renderDivergencias(tipo){
       :'');
 }
 document.addEventListener('click',function(e){
-  if(e.target.matches&&e.target.matches('input[data-resolve],input[data-resolve-grupo]'))e.stopPropagation();
+  if(e.target.matches&&e.target.matches('input[data-resolve],input[data-resolve-grupo],input[data-resolve-serv],input[data-resolve-serv-grupo]'))e.stopPropagation();
 });
 document.addEventListener('change',function(e){
   var r=e.target.dataset.resolve;
@@ -4224,42 +4224,77 @@ function renderConfServ(tipo){
         '<td class="num">'+brl(g.total)+'</td><td class="num">'+(saldo==null?'—':brl(saldo))+'</td>'+
         '<td><div class="sit">'+sit+'</div></td></tr>';
     }).join('')+'</tbody></table></div>';
-  // lançamento fora da categoria do participante
-  var linha=function(n,feito){
-    var k=tipo+'|'+chaveServ(n),c=catN(n),l=lancN(n.lanc);
-    // lançou com o lançamento de outra categoria: oferece colocar o participante nela
-    var outras=l?SERV_CAT[tipo].filter(function(x){return x.lanc===l&&x.id!==c.id&&!x.travado;}):[];
-    var acoes=!feito&&c.id==='geral'&&outras.length?'<div class="serv-div-acoes"><span class="hint">'+esc(l)+' é de '+esc(outras.map(function(x){return x.nome;}).join(' / '))+' —</span>'+
-      outras.map(function(x){return '<button type="button" class="btn btn-sm" data-serv-sug="'+tipo+'|'+x.id+'" data-nome="'+esc(n.nome)+'">Colocar em '+esc(x.nome)+'</button>';}).join('')+'</div>':'';
-    return '<tr'+(feito?' class="feito'+(k===servAnimar?' anima':'')+'"':'')+'><td><input type="checkbox" data-resolve-serv="'+esc(k)+'" data-hist-texto="'+esc(cfg.rotulo+' · nota '+n.numero+' · '+n.nome+' · lanç. '+(l||'—')+' (esperado '+c.lanc+' — '+c.nome+')')+'"'+(feito?' checked':'')+' aria-label="Marcar como corrigido"></td>'+
-      '<td>'+esc(n.data)+'</td><td>'+esc(n.numero)+'</td><td class="wrap"><span class="risco">'+esc(n.nome)+'</span>'+acoes+'</td>'+
-      '<td class="wrap">'+esc(c.nome)+'</td><td>'+esc(l||'—')+'</td><td><b>'+esc(c.lanc)+'</b></td><td class="num">'+brl(n.valor)+'</td></tr>';
+  // lançamento fora do padrão — agrupado por fornecedor/cliente, igual ao agrupamento por CFOP
+  var ordem=servOrdem[tipo]||'nome';
+  var soma=function(l){return l.reduce(function(s,n){return s+n.valor;},0);};
+  var agrupar=function(lista){
+    var g={};
+    lista.forEach(function(n){var k=nomeNorm(n.nome);(g[k]=g[k]||{key:k,nome:n.nome,cat:catN(n),itens:[]}).itens.push(n);});
+    return Object.keys(g).map(function(k){return g[k];}).sort(function(a,b){
+      if(ordem==='valor')return soma(b.itens)-soma(a.itens);
+      if(ordem==='data')return Math.min.apply(null,a.itens.map(function(n){return dataOrdem(n.data);}))-Math.min.apply(null,b.itens.map(function(n){return dataOrdem(n.data);}));
+      return a.nome.localeCompare(b.nome,'pt-BR');
+    });
   };
-  // igual Naturezas: filtro de situação, corrigidas descem pro fim riscadas e apagadas
-  var sit=servSit[tipo]||'',mostraPend=sit!=='corrigido'?pend:[],mostraCorr=sit!=='pendente'?corr:[];
-  $('#confServDiv').innerHTML='<div class="card-head"><h3>Lançamento fora do padrão</h3></div>'+
-    (!divs.length?'<p class="empty">Nenhuma nota fora do padrão.</p>':
-      '<div class="chip-row" style="margin:0 0 12px"><span class="chip-lbl">Situação</span>'+
-        '<select class="select-compact" data-serv-sit="'+tipo+'" aria-label="Situação">'+
-          [['','Todas'],['pendente','Pendentes'],['corrigido','Corrigidos']].map(function(p){return '<option value="'+p[0]+'"'+(sit===p[0]?' selected':'')+'>'+p[1]+'</option>';}).join('')+
-        '</select></div>'+
-      (!mostraPend.length&&!mostraCorr.length?'<p class="empty">Nenhuma nota bate com o filtro.</p>':
-      '<div class="table-wrap" id="natListaServ" style="max-height:none;"><table><thead><tr><th style="width:34px"></th><th>Data</th><th>Nota</th><th>'+capital(cfg.part)+'</th><th>Categoria</th><th>Lanç.</th><th>Esperado</th><th class="num">Valor</th></tr></thead><tbody>'+
-        mostraPend.map(function(n){return linha(n,false);}).join('')+mostraCorr.map(function(n){return linha(n,true);}).join('')+
-      '</tbody></table></div>'));
-  servAnimar=null; // a animação só roda uma vez, na linha que acabou de ser marcada
+  var grupo=function(gr,marcado){
+    var itens=gr.itens.slice().sort(function(a,b){return dataOrdem(a.data)-dataOrdem(b.data);}),c=gr.cat;
+    // lançou com o lançamento de outra categoria: oferece colocar o participante nela
+    var outras=[];
+    if(!marcado&&c.id==='geral')itens.forEach(function(n){var l=lancN(n.lanc);SERV_CAT[tipo].forEach(function(x){if(l&&x.lanc===l&&x.id!==c.id&&!x.travado&&outras.indexOf(x)<0)outras.push(x);});});
+    var acoes=outras.length?'<div class="serv-div-acoes" style="padding:0 13px 8px 39px"><span class="hint">'+
+      esc(outras.map(function(x){return x.lanc;}).filter(function(v,i,l){return l.indexOf(v)===i;}).join(', '))+' é de '+esc(outras.map(function(x){return x.nome;}).join(' / '))+' —</span>'+
+      outras.map(function(x){return '<button type="button" class="btn btn-sm" data-serv-sug="'+tipo+'|'+x.id+'" data-nome="'+esc(gr.nome)+'">Colocar em '+esc(x.nome)+'</button>';}).join('')+'</div>':'';
+    return '<details class="dp-grupo"'+(marcado?'':' open')+' style="border:1px solid var(--border);border-radius:var(--radius-sm);margin-bottom:8px;background:var(--surface);overflow:hidden;">'+
+      '<summary style="cursor:pointer;padding:11px 13px;">'+
+        '<span style="display:inline-flex;align-items:center;gap:10px;width:calc(100% - 22px);vertical-align:middle;">'+
+          '<input type="checkbox" data-resolve-serv-grupo="'+tipo+'|'+esc(gr.key)+'" data-hist-texto="'+esc(cfg.rotulo+' · '+gr.nome+' ('+itens.length+' nota'+(itens.length>1?'s':'')+')')+'"'+(marcado?' checked':'')+' aria-label="Marcar todo o grupo como corrigido">'+
+          '<b title="'+esc(gr.nome)+'" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0;">'+esc(gr.nome)+'</b>'+
+          '<span class="badge badge-neutral" style="flex:none">'+itens.length+'</span>'+
+          '<span class="hint" style="margin-left:auto;white-space:nowrap">'+esc(c.nome)+' · esperado <b style="color:var(--ink)">'+esc(c.lanc)+'</b> · '+brl(soma(itens))+'</span>'+
+        '</span>'+
+      '</summary>'+acoes+
+      '<ul style="list-style:none;margin:0;padding:0 13px 10px 39px;">'+
+      itens.map(function(n){
+        var k=tipo+'|'+chaveServ(n),l=lancN(n.lanc);
+        return '<li style="display:flex;align-items:center;gap:10px;padding:7px 0;border-top:1px solid var(--border);font-size:13.5px;flex-wrap:wrap;">'+
+          '<input type="checkbox" data-resolve-serv="'+esc(k)+'" data-hist-texto="'+esc(cfg.rotulo+' · nota '+n.numero+' · '+n.nome+' · lanç. '+(l||'—')+' (esperado '+c.lanc+' — '+c.nome+')')+'"'+(marcado?' checked':'')+' aria-label="Marcar como corrigido">'+
+          '<span style="flex:1 1 200px;min-width:0;">'+esc(n.data)+' · nota '+esc(n.numero)+'</span>'+
+          '<span class="hint" style="white-space:nowrap">lanç. <b style="color:var(--ink)">'+esc(l||'—')+'</b> — esperado: <b style="color:var(--ink)">'+esc(c.lanc)+'</b></span>'+
+          '<span class="num" style="width:90px;text-align:right">'+brl(n.valor)+'</span>'+
+        '</li>';
+      }).join('')+
+      '</ul></details>';
+  };
+  var gPend=agrupar(pend),gCorr=agrupar(corr);
+  $('#confServDiv').innerHTML=!divs.length?'<div class="card-head"><h3>Lançamento fora do padrão</h3></div><p class="empty">Nenhuma nota fora do padrão.</p>':
+    '<div class="card-head"><h3>Lançamento fora do padrão</h3>'+
+      '<label class="card-head-ctl">Ordenar por <select class="select-compact" data-serv-ordem="'+tipo+'">'+
+        [['nome',capital(cfg.part)+' (A-Z)'],['valor','Valor (maior primeiro)'],['data','Data']].map(function(p){return '<option value="'+p[0]+'"'+(ordem===p[0]?' selected':'')+'>'+p[1]+'</option>';}).join('')+
+      '</select></label></div>'+
+    (gPend.length?gPend.map(function(g){return grupo(g,false);}).join(''):'<p class="empty">Nenhuma pendente — tudo corrigido.</p>')+
+    (gCorr.length?'<p class="hint" style="margin-top:16px;font-weight:600;color:var(--ink)">Corrigidos ('+corr.length+')</p>'+gCorr.map(function(g){return grupo(g,true);}).join(''):'');
 }
-var servAnimar=null,servSit={tomados:'',prestados:''};
+var servOrdem={tomados:'nome',prestados:'nome'};
 document.addEventListener('change',function(e){
-  var t=e.target.dataset&&e.target.dataset.servSit;if(!t)return;
-  servSit[t]=e.target.value;renderConfServ(t);
+  var t=e.target.dataset&&e.target.dataset.servOrdem;if(!t)return;
+  servOrdem[t]=e.target.value;renderConfServ(t);
+});
+// marcar o grupo inteiro (todas as notas daquele fornecedor/cliente na lista)
+document.addEventListener('change',function(e){
+  var rg=e.target.dataset&&e.target.dataset.resolveServGrupo;if(!rg)return;
+  var tipo=rg.slice(0,rg.indexOf('|')),checked=e.target.checked,arr=emp().divResolvidos;
+  [].slice.call(e.target.closest('details').querySelectorAll('[data-resolve-serv]')).forEach(function(cb){
+    var key='serv:'+cb.dataset.resolveServ,pos=arr.indexOf(key);
+    if(checked){if(pos<0)arr.push(key);}else if(pos>=0)arr.splice(pos,1);
+  });
+  registrarHist('servdivg|'+rg,e.target.dataset.histTexto||'',checked,'divergencia');
+  save();renderConfServ(tipo);
 });
 document.addEventListener('change',function(e){
   var r=e.target.dataset.resolveServ;if(!r)return;
   var key='serv:'+r,arr=emp().divResolvidos,pos=arr.indexOf(key);
   if(e.target.checked){if(pos<0)arr.push(key);}else if(pos>=0)arr.splice(pos,1);
   registrarHist('servdiv|'+r,e.target.dataset.histTexto||'',e.target.checked,'divergencia');
-  servAnimar=e.target.checked?r:null;
   save();renderConfServ(r.slice(0,r.indexOf('|')));
 });
 
