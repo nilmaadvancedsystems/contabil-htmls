@@ -1108,27 +1108,22 @@
         </div>
       </section>
 
-      <!-- ============ CADASTRO · SERVIÇOS (conta por participante) ============ -->
-      <section id="view-cad-servicos" hidden>
-        <div class="steps" id="cadServSeg">
-          <button class="step-pill" data-cad-serv="tomados" type="button">Tomados</button>
-          <button class="step-pill" data-cad-serv="prestados" type="button">Prestados</button>
-        </div>
-        <div class="card">
-          <h3 id="cadServTitulo">Serviços prestados</h3>
-          <div id="cadServBox"></div>
-        </div>
-      </section>
-
+      <!-- ============ CADASTRO · CONFIGURAÇÕES (entradas, saídas, tomados e prestados) ============ -->
       <section id="view-cad-cfop" hidden>
         <div class="steps" id="cadSeg">
           <button class="step-pill" data-cad-tipo="entradas" type="button">Entradas</button>
           <button class="step-pill" data-cad-tipo="saidas" type="button">Saídas</button>
+          <button class="step-pill" data-cad-tipo="tomados" type="button">Tomados</button>
+          <button class="step-pill" data-cad-tipo="prestados" type="button">Prestados</button>
         </div>
-        <div class="card">
+        <div class="card" id="cadCardNfe">
           <h3 id="cadTitulo">Naturezas de entrada</h3>
           <div id="ndpBoxEnt"></div>
           <div id="ndpBoxSai" hidden></div>
+        </div>
+        <div class="card" id="cadCardServ" hidden>
+          <h3 id="cadServTitulo">Serviços tomados</h3>
+          <div id="cadServBox"></div>
         </div>
       </section>
 
@@ -1295,7 +1290,7 @@
 (function(){
 "use strict";
 
-var APP_VERSION='beta 0.1.20';
+var APP_VERSION='beta 0.1.21';
 document.querySelectorAll('#verLogin,#verApp,#verDrawer').forEach(function(el){el.textContent='Versão: '+APP_VERSION;});
 
 /* ============================== ícones ============================== */
@@ -1637,8 +1632,7 @@ var SECOES=[
     {v:'imp-tomados',label:'Tomados',icon:'fileDown'},
     {v:'imp-prestados',label:'Prestados',icon:'fileUp'}]},
   {id:'cadastro',grupo:1,label:'Cadastro',icon:'link',itens:[
-    {v:'cad-cfop',label:'NFEs',icon:'link'},
-    {v:'cad-servicos',label:'NFSEs',icon:'briefcase'}]},
+    {v:'cad-cfop',label:'Configurações',icon:'settings'}]},
   {id:'movimento',grupo:2,label:'Movimento',icon:'repeat',itens:[
     {v:'mov-conferencia',label:'Conferência',icon:'checkCircle'},
     {v:'mov-naturezas',label:'Naturezas',icon:'list'},
@@ -1652,8 +1646,7 @@ var VIEWS={
   'imp-saidas':{sec:'importacao',title:'Saídas'},
   'imp-prestados':{sec:'importacao',title:'Serviços prestados'},
   'imp-tomados':{sec:'importacao',title:'Serviços tomados'},
-  'cad-cfop':{sec:'cadastro',title:'Configuração do CFOP'},
-  'cad-servicos':{sec:'cadastro',title:'Configuração de serviços'},
+  'cad-cfop':{sec:'cadastro',title:'Configurações'},
   'mov-conferencia':{sec:'movimento',title:'Conferência'},
   'mov-naturezas':{sec:'movimento',title:'Naturezas de CFOP'},
   'mov-consulta':{sec:'movimento',title:'Consulta de notas'},
@@ -1716,14 +1709,12 @@ function contadorCad(tipo){
 var cadTipo='entradas';
 function cadAba(t){
   if(!$('#cadSeg'))return;
-  cadTipo=t;
-  $$('#cadSeg .step-pill').forEach(function(b){
-    b.textContent=b.dataset.cadTipo==='entradas'?'Entradas':'Saídas';
-    b.setAttribute('aria-current',b.dataset.cadTipo===t?'true':'false');
-  });
+  cadTipo=t;var serv=ehServ(t);
+  $$('#cadSeg .step-pill').forEach(function(b){b.setAttribute('aria-current',b.dataset.cadTipo===t?'true':'false');});
+  $('#cadCardNfe').hidden=serv;$('#cadCardServ').hidden=!serv;
   $('#ndpBoxEnt').hidden=t!=='entradas';
   $('#ndpBoxSai').hidden=t!=='saidas';
-  $('#cadTitulo').textContent=t==='entradas'?'Naturezas de entrada':'Naturezas de saída';
+  if(serv)cadServTipo=t;else $('#cadTitulo').textContent=t==='entradas'?'Naturezas de entrada':'Naturezas de saída';
   renderCadServ();
 }
 document.addEventListener('click',function(e){
@@ -3449,7 +3440,7 @@ document.addEventListener('change',function(e){
 var vc={contas:[],conta:null,razaoLinhas:[],cfopGrupo:null,servTipo:null,resultado:null};
 function vcReset(){vc={contas:[],conta:null,razaoLinhas:[],cfopGrupo:null,servTipo:null,resultado:null};}
 /* serviços (tomados/prestados): não tem CFOP — a conta já diz quais notas conferir.
-   Conta vinculada a uma categoria em Cadastro › NFSEs → confere as notas dos participantes dela. */
+   Conta vinculada a uma categoria em Cadastro › Configurações → confere as notas dos participantes dela. */
 function vcServDaConta(codigo){
   var nc=emp().naturezaConta||{},achou=null;
   Object.keys(nc).forEach(function(k){var m=/^serv\|(tomados|prestados)\|/.exec(k);if(m&&!achou&&contasDaNatureza(k).indexOf(codigo)>-1)achou=m[1];});
@@ -3612,7 +3603,7 @@ function vcMontarCfopSelect(){
   $('#vcCfopCampo').hidden=!!vc.servTipo;$('#vcServCampo').hidden=!vc.servTipo;
   if(vc.servTipo){
     var ns=vcNotasServ(),ps={},soma=ns.reduce(function(s,n){ps[nomeNorm(n.nome)]=1;return s+n.valor;},0),q=Object.keys(ps).length,cfg=SV[vc.servTipo];
-    $('#vcServInfo').innerHTML=esc(cfg.rotulo)+' ligados a essa conta em Cadastro › NFSEs: <b style="color:var(--ink)">'+ns.length+' nota(s)</b> de '+q+' '+(q===1?cfg.part:cfg.parts)+' · '+brl(soma);
+    $('#vcServInfo').innerHTML=esc(cfg.rotulo)+' ligados a essa conta em Cadastro › Configurações: <b style="color:var(--ink)">'+ns.length+' nota(s)</b> de '+q+' '+(q===1?cfg.part:cfg.parts)+' · '+brl(soma);
     return;
   }
   var notas=vcTodasNotas(),grupos=agruparTotaisPorNatureza(notas);
@@ -4047,7 +4038,6 @@ function servFormHtml(t,cat){
 function renderCadServ(){
   var box=$('#cadServBox');if(!box||!atual)return;
   var t=cadServTipo,cfg=SV[t],cats=SERV_CAT[t];
-  $$('#cadServSeg .step-pill').forEach(function(b){b.setAttribute('aria-current',b.dataset.cadServ===t?'true':'false');});
   $('#cadServTitulo').textContent=cfg.rotulo;
   if(!emp().contas.length){box.innerHTML='<p class="empty">Importe o balancete para vincular as contas.</p>';return;}
   var parts=servPartsDasNotas(t),mapa=(emp().servCat||{})[t]||{};
@@ -4100,7 +4090,8 @@ function servFecharForm(w){
 // abre o "Adicionar fornecedor" da categoria já com o fornecedor escolhido (sugestões e Conferência)
 function servIrParaForm(t,cat,nome){
   cadServTipo=t;
-  if(view!=='cad-servicos')go('cad-servicos');else renderCadServ();
+  cadTipo=t;
+  if(view!=='cad-cfop')go('cad-cfop');else cadAba(t);
   setTimeout(function(){var w=document.querySelector('[data-serv-add="'+t+'|'+cat+'"]');if(!w)return;
     w.scrollIntoView({behavior:'smooth',block:'center'});servAbrirForm(w,nome);},80);
 }
@@ -4134,8 +4125,7 @@ function servConfirmar(w){
   toast(nome+' → '+catServ(t,cat).nome+' (lançamento '+catServ(t,cat).lanc+').');
 }
 document.addEventListener('click',function(e){
-  var b=e.target.closest('#cadServSeg [data-cad-serv]');if(b){cadServTipo=b.dataset.cadServ;renderCadServ();return;}
-  b=e.target.closest('.serv-add-btn');if(b){servAbrirForm(b.closest('.serv-add'));return;}
+  var b=e.target.closest('.serv-add-btn');if(b){servAbrirForm(b.closest('.serv-add'));return;}
   b=e.target.closest('[data-serv-add-cancel]');if(b){servFecharForm(b.closest('.serv-add'));return;}
   b=e.target.closest('[data-serv-add-ok]');if(b){servConfirmar(b.closest('.serv-add'));return;}
   b=e.target.closest('[data-serv-forn-escolher]');
@@ -4217,7 +4207,7 @@ function renderConfServ(tipo){
       var saldo=null,falta=g.contas.some(function(c){return saldoAtualizado(c)==null;});
       if(g.contas.length&&!falta)saldo=g.contas.reduce(function(s,c){return s+saldoAtualizado(c);},0);
       var sit;
-      if(!g.contas.length)sit='<span class="badge badge-neutral">Configure em Cadastro › NFSEs</span>';
+      if(!g.contas.length)sit='<span class="badge badge-neutral">Configure em Cadastro › Configurações</span>';
       else if(Math.abs(g.total)<0.005)sit='<span class="badge badge-neutral">0,00</span>';
       else if(saldo==null)sit='<span class="badge badge-neutral">Conta fora do balancete lido</span>';
       else{var dif=g.total-saldo,vs=verifEstado(g.contas[0]);sit=Math.abs(dif)<0.01?'<span class="badge badge-ok">Ok</span><span class="sit-vazio"></span>':
