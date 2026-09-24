@@ -1221,7 +1221,11 @@
             <div id="vcContaLista" hidden></div>
           </div>
           <div id="vcContaEscolhida" hidden></div>
-          <div class="field">
+          <div class="field" id="vcServCampo" hidden>
+            <label>Notas conferidas</label>
+            <p class="hint" id="vcServInfo" style="margin:0"></p>
+          </div>
+          <div class="field" id="vcCfopCampo">
             <label for="vcCfopSel">CFOP</label>
             <select id="vcCfopSel" disabled><option value="">— importe as notas de entradas/saídas primeiro —</option></select>
           </div>
@@ -1267,7 +1271,7 @@
 (function(){
 "use strict";
 
-var APP_VERSION='beta 0.1.12';
+var APP_VERSION='beta 0.1.13';
 document.querySelectorAll('#verLogin,#verApp,#verDrawer').forEach(function(el){el.textContent='Versão: '+APP_VERSION;});
 
 /* ============================== ícones ============================== */
@@ -3501,8 +3505,20 @@ document.addEventListener('change',function(e){
 });
 
 /* ============================== verificar conta (script — nada aqui é salvo) ============================== */
-var vc={contas:[],conta:null,razaoLinhas:[],cfopGrupo:null,resultado:null};
-function vcReset(){vc={contas:[],conta:null,razaoLinhas:[],cfopGrupo:null,resultado:null};}
+var vc={contas:[],conta:null,razaoLinhas:[],cfopGrupo:null,servTipo:null,resultado:null};
+function vcReset(){vc={contas:[],conta:null,razaoLinhas:[],cfopGrupo:null,servTipo:null,resultado:null};}
+/* serviços (tomados/prestados): não tem CFOP — a conta já diz quais notas conferir.
+   Conta vinculada a uma categoria em Cadastro › NFSEs → confere as notas dos participantes dela. */
+function vcServDaConta(codigo){
+  var nc=emp().naturezaConta||{},achou=null;
+  Object.keys(nc).forEach(function(k){var m=/^serv\|(tomados|prestados)\|/.exec(k);if(m&&!achou&&contasDaNatureza(k).indexOf(codigo)>-1)achou=m[1];});
+  return achou;
+}
+function vcNotasServ(){
+  if(!vc.servTipo||!vc.conta)return [];
+  var t=vc.servTipo;
+  return listaTipo(t).filter(function(n){return contasDoPart(t,n.nome).indexOf(vc.conta.codigo)>-1;});
+}
 /* o relatório da conta (Excel) só existe pra conferência daquele momento: nunca vai pra
    nuvem, e ao sair da tela Verificar por conta é apagado da memória junto com o resultado */
 function vcDescartarRelatorio(){
@@ -3515,7 +3531,7 @@ function vcTodasNotas(){
   return emp().entradas.map(function(n){return Object.assign({},n,{tipo:tipoDoCfop(n.cfop)||'Entrada'});})
     .concat(emp().saidas.map(function(n){return Object.assign({},n,{tipo:tipoDoCfop(n.cfop)||'Saída'});}));
 }
-function vcNumerosDoHistorico(txt){
+function vcNumerosDoHistorico(txt,serv){
   // histórico fiscal comum: "conf NF-e ? - 29-54540585000161-NOME DO CLIENTE // NF 9009"
   // o número real da nota fica logo antes do CNPJ (14 dígitos) — ignora qualquer outro
   // número solto no texto (tipo essa observação "// NF 9009" no final).
@@ -3523,7 +3539,8 @@ function vcNumerosDoHistorico(txt){
   // comprido sem esse padrão faz o regex tentar muitas combinações (trava o navegador).
   var m=txt.match(/(\d{1,9})-(\d{14})-/);
   if(m)return [m[1]];
-  return (txt.match(/\d{3,}/g)||[]).filter(function(t){return t.length<11;});
+  // NFS-e costuma ter número comprido (até 15 dígitos); só não confunde com CPF (11) nem CNPJ (14)
+  return (txt.match(/\d{3,}/g)||[]).filter(function(t){return serv?(t.length<=15&&t.length!==11&&t.length!==14):t.length<11;});
 }
 function vcMostrarResultado(mostrar){
   $('#vcResultadoCard').hidden=!mostrar;
@@ -3585,7 +3602,8 @@ function vcFaltando(){
   if(!vc.contas.length)f.push('Importar o balancete em Importação › Balancete');
   if(!vc.conta)f.push('Escolher qual conta você quer conferir');
   if(!vc.razaoLinhas.length)f.push('Importar o relatório da conta contábil');
-  if(!vc.cfopGrupo)f.push('Escolher o CFOP referente a essa conta');
+  if(vc.servTipo){if(!vcNotasServ().length)f.push('Nenhuma nota de '+SV[vc.servTipo].rotulo.toLowerCase()+' ligada a essa conta');}
+  else if(!vc.cfopGrupo)f.push('Escolher o CFOP referente a essa conta');
   return f;
 }
 /* ---- relatório da conta + cfop ---- */
@@ -3617,6 +3635,15 @@ $('#vcBtImportarRazao').onclick=function(){
 // o relatório é lido assim que o arquivo é escolhido — o usuário só sobe o arquivo e clica em Conferir
 $('#vcRazaoFile').addEventListener('change',function(){if(this.files[0])$('#vcBtImportarRazao').click();});
 function vcMontarCfopSelect(){
+  // conta ligada a CFOP continua no modo de sempre; ligada só a serviço → modo serviços (sem CFOP)
+  var temCfop=vc.conta&&naturezasDaConta(vc.conta.codigo).some(function(k){return k.indexOf('serv|')!==0;});
+  vc.servTipo=vc.conta&&!temCfop?vcServDaConta(vc.conta.codigo):null;
+  $('#vcCfopCampo').hidden=!!vc.servTipo;$('#vcServCampo').hidden=!vc.servTipo;
+  if(vc.servTipo){
+    var ns=vcNotasServ(),ps={},soma=ns.reduce(function(s,n){ps[nomeNorm(n.nome)]=1;return s+n.valor;},0),q=Object.keys(ps).length,cfg=SV[vc.servTipo];
+    $('#vcServInfo').innerHTML=esc(cfg.rotulo)+' ligados a essa conta em Cadastro › NFSEs: <b style="color:var(--ink)">'+ns.length+' nota(s)</b> de '+q+' '+(q===1?cfg.part:cfg.parts)+' · '+brl(soma);
+    return;
+  }
   var notas=vcTodasNotas(),grupos=agruparTotaisPorNatureza(notas);
   var chaves=Object.keys(grupos).sort(function(a,b){
     var ga=grupos[a].cfops.slice().sort()[0]||'',gb=grupos[b].cfops.slice().sort()[0]||'';
@@ -3657,12 +3684,16 @@ $('#vcBtConferir').onclick=function(){
   // adia um instante só pra o navegador desenhar o "Comparando…" antes de travar a aba com a conta.
   setTimeout(function(){
     try{
-      var notas=vcTodasNotas(),grupos=agruparTotaisPorNatureza(notas),gr=grupos[vc.cfopGrupo];
-      if(!gr){toast('Escolha o CFOP antes de conferir.');return;}
-      var alvo=gr.itens;
+      var alvo;
+      if(vc.servTipo)alvo=vcNotasServ(); // serviços: as notas da conta, sem CFOP
+      else{
+        var notas=vcTodasNotas(),grupos=agruparTotaisPorNatureza(notas),gr=grupos[vc.cfopGrupo];
+        if(!gr){toast('Escolha o CFOP antes de conferir.');return;}
+        alvo=gr.itens;
+      }
       var vistos={},valoresPorNumero={};
       // acha os números de cada linha do relatório uma única vez e reaproveita
-      var numerosPorLinha=vc.razaoLinhas.map(function(l){return vcNumerosDoHistorico(l.txt);});
+      var numerosPorLinha=vc.razaoLinhas.map(function(l){return vcNumerosDoHistorico(l.txt,!!vc.servTipo);});
       vc.razaoLinhas.forEach(function(l,i){
         numerosPorLinha[i].forEach(function(t){
           var k=t.replace(/^0+/,'')||t;
@@ -3690,7 +3721,7 @@ $('#vcBtConferir').onclick=function(){
       });
       var somaRazao=vc.razaoLinhas.reduce(function(s,l){return s+l.valor;},0);
       var somaFiscal=alvo.reduce(function(s,n){return s+n.valor;},0);
-      vc.resultado={faltando:faltando,duplicada:duplicada,aMais:aMais,somaRazao:somaRazao,somaFiscal:somaFiscal,alvo:alvo};
+      vc.resultado={faltando:faltando,duplicada:duplicada,aMais:aMais,somaRazao:somaRazao,somaFiscal:somaFiscal,alvo:alvo,serv:vc.servTipo};
       vcRenderResultado();
       vcMostrarResultado(true);
       $('#vcResultadoCard').scrollIntoView({behavior:'smooth',block:'start'});
@@ -3711,9 +3742,11 @@ function vcRenderResultado(){
   var somaDuplicada=r.duplicada.reduce(function(s,d){return s+d.valor;},0);
   var somaAMais=r.aMais.reduce(function(s,l){return s+l.valor;},0);
   var totalizador=somaFaltando-somaDuplicada-somaAMais;
+  var sv=r.serv,rotSv=sv?SV[sv].rotulo.toLowerCase():'';
+  var catSv=function(n){return catServ(sv,catDoPart(sv,n.nome)).nome;};
   $('#vcStats').innerHTML=
     '<div class="stat"><p class="stat-label">Relatório da conta</p><p class="stat-value">'+brl(r.somaRazao)+'</p></div>'+
-    '<div class="stat"><p class="stat-label">Fiscal (entradas/saídas)</p><p class="stat-value">'+brl(r.somaFiscal)+'</p></div>'+
+    '<div class="stat"><p class="stat-label">Fiscal ('+(sv?rotSv:'entradas/saídas')+')</p><p class="stat-value">'+brl(r.somaFiscal)+'</p></div>'+
     '<div class="stat'+(Math.abs(r.somaFiscal-r.somaRazao)<0.005?' success':'')+'"><p class="stat-label">Diferença</p><p class="stat-value">'+brl(r.somaFiscal-r.somaRazao)+'</p></div>';
   var html='<p class="sub">Comparação por número de nota — é uma estimativa, vale conferir os casos que aparecem abaixo.</p>';
   html+='<div class="card" style="background:var(--surface-2);box-shadow:none;margin:16px 0 0;padding:16px 18px;">'+
@@ -3729,9 +3762,9 @@ function vcRenderResultado(){
     '</div>'+
   '</div>';
   html+='<hr><h3 style="font-size:15px">Faltando no relatório ('+r.faltando.length+') — <span style="color:var(--ink-muted);font-weight:600">'+brl(somaFaltando)+'</span></h3>'+
-    '<p class="sub">Notas de Entradas/Saídas desse CFOP que não achei no relatório da conta.</p>'+
-    (r.faltando.length?'<div class="table-wrap"><table><thead><tr><th>Data</th><th>Nota</th><th>Fornecedor / cliente</th><th>CFOP</th><th class="num">Valor</th></tr></thead><tbody>'+
-      r.faltando.slice(0,VC_LIMITE_LINHAS).map(function(n){return '<tr class="bad"><td>'+esc(n.data)+'</td><td>'+esc(n.numero)+'</td><td class="wrap">'+esc(n.nome)+'</td><td>'+esc(n.cfop)+'</td><td class="num">'+brl(n.valor)+'</td></tr>';}).join('')+
+    '<p class="sub">'+(sv?'Notas de '+rotSv+' ligadas a essa conta que não achei no relatório da conta.':'Notas de Entradas/Saídas desse CFOP que não achei no relatório da conta.')+'</p>'+
+    (r.faltando.length?'<div class="table-wrap"><table><thead><tr><th>Data</th><th>Nota</th><th>'+(sv?capital(SV[sv].part):'Fornecedor / cliente')+'</th><th>'+(sv?'Categoria':'CFOP')+'</th><th class="num">Valor</th></tr></thead><tbody>'+
+      r.faltando.slice(0,VC_LIMITE_LINHAS).map(function(n){return '<tr class="bad"><td>'+esc(n.data)+'</td><td>'+esc(n.numero)+'</td><td class="wrap">'+esc(n.nome)+'</td><td>'+esc(sv?catSv(n):n.cfop)+'</td><td class="num">'+brl(n.valor)+'</td></tr>';}).join('')+
       '</tbody></table></div>'+vcAvisoTruncado(r.faltando.length):'<p class="empty">Nenhuma.</p>');
   html+='<hr><h3 style="font-size:15px">Duplicadas no relatório ('+r.duplicada.length+') — <span style="color:var(--ink-muted);font-weight:600">'+brl(somaDuplicada)+'</span></h3>'+
     '<p class="sub">Número de nota que aparece mais de uma vez no relatório da conta. O valor é o que ficou a mais por causa da repetição.</p>'+
@@ -3739,7 +3772,7 @@ function vcRenderResultado(){
       r.duplicada.slice(0,VC_LIMITE_LINHAS).map(function(d){return '<tr class="bad"><td>'+esc(d.numero)+'</td><td class="num">'+d.vezes+'</td><td class="num">'+brl(d.valor)+'</td></tr>';}).join('')+
       '</tbody></table></div>'+vcAvisoTruncado(r.duplicada.length):'<p class="empty">Nenhuma.</p>');
   html+='<hr><h3 style="font-size:15px">A mais no relatório ('+r.aMais.length+') — <span style="color:var(--ink-muted);font-weight:600">'+brl(somaAMais)+'</span></h3>'+
-    '<p class="sub">Linha do relatório que não bateu com nenhuma nota de Entradas/Saídas desse CFOP.</p>'+
+    '<p class="sub">'+(sv?'Linha do relatório que não bateu com nenhuma nota de '+rotSv+' ligada a essa conta.':'Linha do relatório que não bateu com nenhuma nota de Entradas/Saídas desse CFOP.')+'</p>'+
     (r.aMais.length?'<div class="table-wrap"><table><thead><tr><th>Data</th><th>Histórico</th><th class="num">Valor</th></tr></thead><tbody>'+
       r.aMais.slice(0,VC_LIMITE_LINHAS).map(function(l){return '<tr class="bad"><td>'+esc(l.data)+'</td><td class="wrap">'+esc(l.txt)+'</td><td class="num">'+brl(l.valor)+'</td></tr>';}).join('')+
       '</tbody></table></div>'+vcAvisoTruncado(r.aMais.length):'<p class="empty">Nenhuma.</p>');
@@ -3750,8 +3783,9 @@ $('#vcBtCsv').onclick=function(){
   var somaFaltando=r.faltando.reduce(function(s,n){return s+n.valor;},0);
   var somaDuplicada=r.duplicada.reduce(function(s,d){return s+d.valor;},0);
   var somaAMais=r.aMais.reduce(function(s,l){return s+l.valor;},0);
-  var L=['Tipo;Data;Nota;Fornecedor;CFOP;Valor'];
-  r.faltando.forEach(function(n){L.push(['Faltando',n.data,n.numero,n.nome,n.cfop,brl(n.valor)].join(';'));});
+  var sv=r.serv;
+  var L=['Tipo;Data;Nota;Fornecedor;'+(sv?'Categoria':'CFOP')+';Valor'];
+  r.faltando.forEach(function(n){L.push(['Faltando',n.data,n.numero,n.nome,sv?catServ(sv,catDoPart(sv,n.nome)).nome:n.cfop,brl(n.valor)].join(';'));});
   r.duplicada.forEach(function(d){L.push(['Duplicada','','número '+d.numero+' ('+d.vezes+' vezes)','','',brl(d.valor)].join(';'));});
   r.aMais.forEach(function(l){L.push(['A mais',l.data,'','',l.txt,brl(l.valor)].join(';'));});
   L.push('');
@@ -4172,11 +4206,13 @@ function renderConfServ(tipo){
       if(!g.contas.length)sit='<span class="badge badge-neutral">Configure em Cadastro › NFSEs</span>';
       else if(Math.abs(g.total)<0.005)sit='<span class="badge badge-neutral">0,00</span>';
       else if(saldo==null)sit='<span class="badge badge-neutral">Conta fora do balancete lido</span>';
-      else{var dif=g.total-saldo;sit=Math.abs(dif)<0.01?'<span class="badge badge-ok">Ok</span>':'<span class="badge badge-bad">'+brl(dif)+'</span>';}
+      else{var dif=g.total-saldo;sit=Math.abs(dif)<0.01?'<span class="badge badge-ok">Ok</span><span class="sit-vazio"></span>':
+        '<span class="badge badge-bad">'+brl(dif)+'</span><button type="button" class="icon-btn icon-btn-sm" data-ir-verificar="'+esc(g.contas[0])+'" title="Revisar esta conta" aria-label="Revisar esta conta">'+svg('fileSearch')+'</button>';}
+      if(sit.indexOf('sit-vazio')<0&&sit.indexOf('data-ir-verificar')<0)sit+='<span class="sit-vazio"></span>';
       return '<tr><td class="wrap"><b>'+esc(cats)+'</b></td><td style="white-space:nowrap">'+esc(titulo)+'</td>'+
         '<td class="wrap" title="'+esc(nomes.join(', '))+'">'+nomes.length+' '+(nomes.length>1?cfg.parts:cfg.part)+' · '+g.qtd+' nota(s)</td>'+
         '<td class="num">'+brl(g.total)+'</td><td class="num">'+(saldo==null?'—':brl(saldo))+'</td>'+
-        '<td><div class="sit">'+sit+'<span class="sit-vazio"></span></div></td></tr>';
+        '<td><div class="sit">'+sit+'</div></td></tr>';
     }).join('')+'</tbody></table></div>';
   // lançamento fora da categoria do participante
   var linha=function(n,feito){
