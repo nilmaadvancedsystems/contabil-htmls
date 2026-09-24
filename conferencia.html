@@ -1219,7 +1219,7 @@
 (function(){
 "use strict";
 
-var APP_VERSION='beta 0.1.6';
+var APP_VERSION='beta 0.1.7';
 document.querySelectorAll('#verLogin,#verApp,#verDrawer').forEach(function(el){el.textContent='Versão: '+APP_VERSION;});
 
 /* ============================== ícones ============================== */
@@ -2003,7 +2003,7 @@ function vistaRowCfop(k,gr){
       '<button type="button" class="icon-btn icon-btn-sm" data-vista-ok="'+esc(k)+'" title="Salvar (Enter)" aria-label="Salvar">'+svg('check')+'</button>'+
       '<button type="button" class="icon-btn icon-btn-sm" data-vista-cancel title="Cancelar (Esc)" aria-label="Cancelar">'+svg('x')+'</button></span>';
   else if(val)
-    corpo='<span class="vista-pill"><button type="button" class="vista-pill-txt" data-vista-edit="'+esc(k)+'" title="Alterar o lançamento à vista">À vista <b>'+esc(val)+'</b></button>'+
+    corpo='<span class="vista-pill"><button type="button" class="vista-pill-txt" data-vista-edit="'+esc(k)+'" title="Alterar o lançamento automático das vendas à vista">Lançamento Automático <b>'+esc(val.length<4?('0000'+val).slice(-4):val)+'</b></button>'+
       '<button type="button" class="vista-pill-x" data-vista-rm="'+esc(k)+'" title="Remover" aria-label="Remover o lançamento à vista">&times;</button></span>';
   else
     corpo='<button type="button" class="vista-add" data-vista-edit="'+esc(k)+'">'+svg('plus')+'Lançamento à vista</button>';
