@@ -772,6 +772,24 @@
   .vista-edit{display:inline-flex;align-items:center;gap:4px;}
   input[type="text"].vista-inp{width:88px;min-height:0;height:26px;padding:2px 9px;font-size:12.5px;font-variant-numeric:tabular-nums;}
   .vista-info{font-size:12px;color:var(--ink-muted);}
+
+  /* Períodos importados: resumo em lista limpa */
+  .per-resumo{border:1px solid var(--border);border-radius:6px;background:var(--surface);margin-bottom:16px;overflow:hidden;}
+  .per-linha{display:grid;grid-template-columns:minmax(150px,1.3fr) minmax(200px,2fr) 72px 84px 120px;align-items:center;gap:12px;padding:11px 16px;border-top:1px solid var(--border);font-size:13.5px;}
+  .per-linha:first-child{border-top:none;}
+  .per-head{padding-top:8px;padding-bottom:8px;font-size:12px;color:var(--ink-muted);}
+  .per-nome{display:flex;align-items:center;gap:9px;font-weight:600;color:var(--ink);min-width:0;}
+  .per-dot{width:8px;height:8px;border-radius:50%;flex:none;}
+  .per-periodo{color:var(--ink);font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .per-num{text-align:right;color:var(--ink-muted);font-variant-numeric:tabular-nums;white-space:nowrap;}
+  .per-valor{color:var(--ink);font-weight:500;}
+  .per-vazio{color:var(--ink-muted);font-weight:400;}
+  @media (max-width:720px){
+    .per-head{display:none;}
+    .per-linha{grid-template-columns:1fr auto auto;row-gap:4px;}
+    .per-nome,.per-periodo{grid-column:1/-1;}
+    .per-num{text-align:left;}
+  }
 </style>
 </head>
 <body>
@@ -990,7 +1008,7 @@
 
       <!-- ============ IMPORTAÇÃO · PERÍODOS ============ -->
       <section id="view-imp-periodos" hidden>
-        <div class="stat-grid" id="perResumo"></div>
+        <div class="per-resumo" id="perResumo"></div>
         <div id="perAlertas"></div>
         <div class="card">
           <h3>Cobertura por mês</h3>
@@ -1124,7 +1142,6 @@
       <section id="view-aud-historico" hidden>
         <div class="card">
           <h3>Histórico</h3>
-          <p class="sub">Tudo o que foi feito nesta empresa: arquivos importados e excluídos, conferências marcadas e desmarcadas e lançamentos fora do padrão corrigidos. Marcar e desmarcar a mesma coisa no mesmo minuto não fica registrado.</p>
           <div id="audBox"></div>
         </div>
       </section>
@@ -1188,7 +1205,7 @@
 (function(){
 "use strict";
 
-var APP_VERSION='beta 0.1.2';
+var APP_VERSION='beta 0.1.3';
 document.querySelectorAll('#verLogin,#verApp,#verDrawer').forEach(function(el){el.textContent='Versão: '+APP_VERSION;});
 
 /* ============================== ícones ============================== */
@@ -2640,14 +2657,23 @@ function renderPeriodos(){
   var hist=e.importHistorico||[];
   var ultBal=hist.filter(function(x){return x.tipo==='Balancete'&&x.acao==='importado';}).slice(-1)[0];
   // resumo
-  var card=function(rot,valor,det){return '<div class="stat"><p class="stat-label">'+rot+'</p><p class="stat-value per-v">'+valor+'</p><p class="hint">'+det+'</p></div>';};
+  // resumo: uma linha por arquivo, colunas alinhadas (período · meses · notas · valor)
+  var linha=function(cor,rot,periodo,meses,notas,valor){
+    return '<div class="per-linha"><span class="per-nome"><i class="per-dot" style="background:'+cor+'"></i>'+rot+'</span>'+
+      '<span class="per-periodo">'+periodo+'</span><span class="per-num">'+(meses||'')+'</span><span class="per-num">'+(notas||'')+'</span><span class="per-num per-valor">'+(valor||'')+'</span></div>';
+  };
+  var intervalo=function(de,ate){return de.slice(6)===ate.slice(6)?de.slice(0,5)+' – '+ate:de+' – '+ate;};
+  var item=function(cor,rot,r){
+    if(!r)return linha(cor,rot,'<span class="per-vazio">Não importado</span>');
+    var nm=Object.keys(r.meses).length;
+    return linha(cor,rot,esc(intervalo(r.de,r.ate)),nm+(nm===1?' mês':' meses'),r.qtd+(r.qtd===1?' nota':' notas'),brl(r.valor));
+  };
   $('#perResumo').innerHTML=
-    card('Balancete · última importação',ultBal?esc(dataHora(ultBal.ts)):'—',
-      e.contas.length?e.contas.length+' contas carregadas':(ultBal?'Excluído depois da importação':'Nunca importado'))+
-    card('Entradas',ent?esc(ent.de)+' a '+esc(ent.ate):'—',ent?ent.qtd+' notas · '+Object.keys(ent.meses).length+' mês(es) · '+brl(ent.valor):'Não importadas')+
-    card('Saídas',sai?esc(sai.de)+' a '+esc(sai.ate):'—',sai?sai.qtd+' notas · '+Object.keys(sai.meses).length+' mês(es) · '+brl(sai.valor):'Não importadas')+
-    (tom?card('Serviços tomados',esc(tom.de)+' a '+esc(tom.ate),tom.qtd+' notas · '+Object.keys(tom.meses).length+' mês(es) · '+brl(tom.valor)):'')+
-    (pre?card('Serviços prestados',esc(pre.de)+' a '+esc(pre.ate),pre.qtd+' notas · '+Object.keys(pre.meses).length+' mês(es) · '+brl(pre.valor)):'');
+    '<div class="per-linha per-head"><span>Arquivo</span><span>Período</span><span class="per-num">Meses</span><span class="per-num">Notas</span><span class="per-num">Valor</span></div>'+
+    linha('var(--ink-muted)','Balancete',ultBal?'<span class="per-vazio">importado em</span> '+esc(dataHora(ultBal.ts)):'<span class="per-vazio">Nunca importado</span>','',
+      e.contas.length?e.contas.length+' contas':(ultBal?'excluído':''),'')+
+    item('var(--danger)','Entradas',ent)+item('var(--success)','Saídas',sai)+
+    (tom?item('var(--warn)','Serviços tomados',tom):'')+(pre?item('var(--accent)','Serviços prestados',pre):'');
   // alertas: buracos e períodos desencontrados
   var alertas=[];
   [['Entradas',ent],['Saídas',sai],['Serviços tomados',tom],['Serviços prestados',pre]].forEach(function(p){
