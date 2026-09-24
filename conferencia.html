@@ -1108,26 +1108,6 @@
         </div>
       </section>
 
-      <!-- ============ IMPORTAÇÃO · PERÍODOS ============ -->
-      <section id="view-imp-periodos" hidden>
-        <div class="steps" id="perModoSeg" role="group" aria-label="Visualização">
-          <button class="step-pill" data-per-modo="resumido" type="button">Resumido</button>
-          <button class="step-pill" data-per-modo="detalhado" type="button">Detalhado</button>
-        </div>
-        <div class="per-resumo" id="perResumo"></div>
-        <div id="perAlertas"></div>
-        <div id="perDetalhe" hidden>
-          <div class="card">
-            <h3>Cobertura por mês</h3>
-            <div id="perGrade"></div>
-          </div>
-          <div class="painel">
-            <div class="painel-head"><p class="painel-titulo">Notas por mês</p><p class="painel-sub">quantidade importada</p></div>
-            <div id="perGrafico"></div>
-          </div>
-        </div>
-      </section>
-
       <!-- ============ CADASTRO · SERVIÇOS (conta por participante) ============ -->
       <section id="view-cad-servicos" hidden>
         <div class="steps" id="cadServSeg">
@@ -1315,7 +1295,7 @@
 (function(){
 "use strict";
 
-var APP_VERSION='beta 0.1.19';
+var APP_VERSION='beta 0.1.20';
 document.querySelectorAll('#verLogin,#verApp,#verDrawer').forEach(function(el){el.textContent='Versão: '+APP_VERSION;});
 
 /* ============================== ícones ============================== */
@@ -1655,8 +1635,7 @@ var SECOES=[
     {v:'imp-entradas',label:'Entradas',icon:'arrowDown'},
     {v:'imp-saidas',label:'Saídas',icon:'arrowUp'},
     {v:'imp-tomados',label:'Tomados',icon:'fileDown'},
-    {v:'imp-prestados',label:'Prestados',icon:'fileUp'},
-    {v:'imp-periodos',label:'Períodos',icon:'calendar'}]},
+    {v:'imp-prestados',label:'Prestados',icon:'fileUp'}]},
   {id:'cadastro',grupo:1,label:'Cadastro',icon:'link',itens:[
     {v:'cad-cfop',label:'NFEs',icon:'link'},
     {v:'cad-servicos',label:'NFSEs',icon:'briefcase'}]},
@@ -1673,7 +1652,6 @@ var VIEWS={
   'imp-saidas':{sec:'importacao',title:'Saídas'},
   'imp-prestados':{sec:'importacao',title:'Serviços prestados'},
   'imp-tomados':{sec:'importacao',title:'Serviços tomados'},
-  'imp-periodos':{sec:'importacao',title:'Períodos importados'},
   'cad-cfop':{sec:'cadastro',title:'Configuração do CFOP'},
   'cad-servicos':{sec:'cadastro',title:'Configuração de serviços'},
   'mov-conferencia':{sec:'movimento',title:'Conferência'},
@@ -1910,7 +1888,7 @@ function go(v){
   if(v==='mov-consulta')consAba(consultaTipo);
   if(m.sec==='auditoria')renderAuditoria();
   if(v==='depara')renderDP();
-  if(m.sec==='importacao'){renderImportacoes();if(v==='imp-balancete')renderPlano();else if(v==='imp-periodos')renderPeriodos();else if(v==='imp-prestados'||v==='imp-tomados')renderServImportados(v==='imp-prestados'?'prestados':'tomados');else renderImportadas(v==='imp-entradas'?'entradas':'saidas');}
+  if(m.sec==='importacao'){renderImportacoes();if(v==='imp-balancete')renderPlano();else if(v==='imp-prestados'||v==='imp-tomados')renderServImportados(v==='imp-prestados'?'prestados':'tomados');else renderImportadas(v==='imp-entradas'?'entradas':'saidas');}
   if(m.sec==='cadastro')renderNaturezaDePara();
   ajustarAlturaCabecalho();
   window.scrollTo({top:0,behavior:'smooth'});
@@ -2778,106 +2756,6 @@ function renderNotas(tipo){
   renderChecklistNatureza();
 }
 /* Importação › Entradas/Saídas: o que foi importado, do jeito que veio */
-/* ---- Importação › Períodos: de quando até quando cada arquivo cobre ---- */
-function resumoPeriodo(lista){
-  if(!lista.length)return null;
-  var datas=lista.map(function(n){return n.data;}).filter(Boolean).sort(function(a,b){return dataOrdem(a)-dataOrdem(b);});
-  var meses={},valor=0;
-  lista.forEach(function(n){valor+=n.valor;if(!n.comp)return;var m=meses[n.comp]=meses[n.comp]||{qtd:0,valor:0};m.qtd++;m.valor+=n.valor;});
-  var ms=Object.keys(meses).sort();
-  var maxMes=1;ms.forEach(function(k){maxMes=Math.max(maxMes,meses[k].qtd);});
-  return {de:datas[0]||'',ate:datas[datas.length-1]||'',qtd:lista.length,valor:valor,meses:meses,mesIni:ms[0],mesFim:ms[ms.length-1],maxMes:maxMes};
-}
-function mesesEntre(a,b){
-  var out=[],y=+a.slice(0,4),m=+a.slice(5,7),yb=+b.slice(0,4),mb=+b.slice(5,7),guarda=0;
-  while((y<yb||(y===yb&&m<=mb))&&guarda++<240){out.push(y+'-'+(m<10?'0':'')+m);m++;if(m>12){m=1;y++;}}
-  return out;
-}
-function dataHora(ts){var d=new Date(ts);return d.toLocaleDateString('pt-BR')+' às '+d.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});}
-function renderPeriodos(){
-  if(!atual||!$('#perResumo'))return;
-  var e=emp(),ent=resumoPeriodo(e.entradas),sai=resumoPeriodo(e.saidas),pre=resumoPeriodo(e.servPrestados||[]),tom=resumoPeriodo(e.servTomados||[]);
-  var hist=e.importHistorico||[];
-  var ultBal=hist.filter(function(x){return x.tipo==='Balancete'&&x.acao==='importado';}).slice(-1)[0];
-  // resumo
-  // resumo: uma linha por arquivo, colunas alinhadas (período · meses · notas · valor)
-  var linha=function(cor,rot,periodo,meses,notas,valor){
-    return '<div class="per-linha"><span class="per-nome"><i class="per-dot" style="background:'+cor+'"></i>'+rot+'</span>'+
-      '<span class="per-periodo">'+periodo+'</span><span class="per-num">'+(meses||'')+'</span><span class="per-num">'+(notas||'')+'</span><span class="per-num per-valor">'+(valor||'')+'</span></div>';
-  };
-  var intervalo=function(de,ate){return de.slice(6)===ate.slice(6)?de.slice(0,5)+' – '+ate:de+' – '+ate;};
-  var item=function(cor,rot,r){
-    if(!r)return linha(cor,rot,'<span class="per-vazio">Não importado</span>');
-    var nm=Object.keys(r.meses).length;
-    return linha(cor,rot,esc(intervalo(r.de,r.ate)),nm+(nm===1?' mês':' meses'),r.qtd+(r.qtd===1?' nota':' notas'),brl(r.valor));
-  };
-  $('#perResumo').innerHTML=
-    '<div class="per-linha per-head"><span>Arquivo</span><span>Período</span><span class="per-num">Meses</span><span class="per-num">Notas</span><span class="per-num">Valor</span></div>'+
-    linha('var(--ink-muted)','Balancete',ultBal?'<span class="per-vazio">importado em</span> '+esc(dataHora(ultBal.ts)):'<span class="per-vazio">Nunca importado</span>','',
-      e.contas.length?e.contas.length+' contas':(ultBal?'excluído':''),'')+
-    item('var(--danger)','Entradas',ent)+item('var(--success)','Saídas',sai)+
-    (tom?item('var(--warn)','Serviços tomados',tom):'')+(pre?item('var(--accent)','Serviços prestados',pre):'');
-  // alertas: buracos e períodos desencontrados
-  var alertas=[];
-  [['Entradas',ent],['Saídas',sai],['Serviços tomados',tom],['Serviços prestados',pre]].forEach(function(p){
-    if(!p[1]||!p[1].mesIni)return;
-    var buracos=mesesEntre(p[1].mesIni,p[1].mesFim).filter(function(m){return !p[1].meses[m];});
-    if(buracos.length)alertas.push('<b>'+p[0]+'</b> sem nenhuma nota em '+buracos.map(mesCurto).join(', ')+' — confira se faltou algum relatório.');
-  });
-  if(ent&&sai&&ent.mesIni&&sai.mesIni&&(ent.mesIni!==sai.mesIni||ent.mesFim!==sai.mesFim))
-    alertas.push('Os períodos não coincidem: entradas de <b>'+mesCurto(ent.mesIni)+' a '+mesCurto(ent.mesFim)+'</b>, saídas de <b>'+mesCurto(sai.mesIni)+' a '+mesCurto(sai.mesFim)+'</b>.');
-  $('#perAlertas').innerHTML=!ent&&!sai&&!pre&&!tom?'':alertas.length?
-    '<div class="alert" style="margin:0 0 16px">'+svg('alert')+'<div><p class="alert-title">Atenção aos períodos</p>'+alertas.map(function(a){return '<p class="alert-text">'+a+'</p>';}).join('')+'</div></div>':
-    '<div class="parity">'+svg('checkCircle')+'<span>'+(ent&&sai?'Entradas e saídas cobrem os mesmos meses, sem buracos.':'Nenhum mês sem nota dentro do período importado.')+'</span></div>';
-  // grade de cobertura (estilo gráfico de contribuições)
-  var ini=[ent&&ent.mesIni,sai&&sai.mesIni,pre&&pre.mesIni,tom&&tom.mesIni].filter(Boolean).sort()[0];
-  var fim=[ent&&ent.mesFim,sai&&sai.mesFim,pre&&pre.mesFim,tom&&tom.mesFim].filter(Boolean).sort().slice(-1)[0];
-  if(!ini){$('#perGrade').innerHTML='<p class="empty">Nenhuma nota importada ainda.</p>';$('#perGrafico').innerHTML='<p class="empty">—</p>';}
-  else{
-    var meses=mesesEntre(ini,fim);
-    var max=1;[ent,sai].forEach(function(r){if(r)Object.keys(r.meses).forEach(function(m){max=Math.max(max,r.meses[m].qtd);});});
-    var linha=function(rot,r,cor){
-      return '<span class="per-lbl">'+rot+'</span>'+meses.map(function(m){
-        var d=r&&r.meses[m];
-        if(!r||m<r.mesIni||m>r.mesFim)return '<span class="per-cel fora" title="'+esc(mesCurto(m))+' · '+rot+': fora do período importado"></span>';
-        if(!d)return '<span class="per-cel vazio" title="'+esc(mesCurto(m))+' · '+rot+': nenhuma nota"></span>';
-        var nivel=Math.max(22,Math.round(d.qtd/r.maxMes*100)); // intensidade relativa a cada tipo
-        return '<span class="per-cel" style="background:color-mix(in srgb, '+cor+' '+nivel+'%, var(--surface-3))" title="'+esc(mesCurto(m))+' · '+rot+': '+d.qtd+' nota(s) · '+brl(d.valor)+'"></span>';
-      }).join('');
-    };
-    $('#perGrade').innerHTML='<div class="per-grade" style="--n:'+meses.length+'">'+
-      '<span></span>'+meses.map(function(m){return '<span class="per-mes">'+esc(mesCurto(m))+'</span>';}).join('')+
-      linha('Entradas',ent,'var(--danger)')+linha('Saídas',sai,'var(--success)')+
-      (tom?linha('Tomados',tom,'var(--warn)'):'')+(pre?linha('Prestados',pre,'var(--accent)'):'')+
-      '</div>'+
-      '<div class="per-legenda"><span>Menos</span>'+[25,50,75,100].map(function(p){return '<span class="per-cel mini" style="background:color-mix(in srgb, var(--ink-muted) '+p+'%, var(--surface-3))"></span>';}).join('')+
-      '<span>Mais</span><span class="per-cel mini vazio"></span><span>sem notas</span></div>';
-    // notas por mês
-    var series=[['Entradas',ent,'var(--danger)'],['Saídas',sai,'var(--success)'],['Tomados',tom,'var(--warn)'],['Prestados',pre,'var(--accent)']]
-      .filter(function(s){return s[1];});
-    if(!series.length)series=[['Entradas',ent,'var(--danger)'],['Saídas',sai,'var(--success)']];
-    var qtdMes=function(r,m){return r&&r.meses[m]?r.meses[m].qtd:0;};
-    var maxQ=1;meses.forEach(function(m){series.forEach(function(s){maxQ=Math.max(maxQ,qtdMes(s[1],m));});});
-    $('#perGrafico').innerHTML='<div class="chart">'+meses.map(function(m){
-      return '<div class="chart-col" style="cursor:default" title="'+esc(mesCurto(m))+' — '+series.map(function(s){return s[0].toLowerCase()+': '+qtdMes(s[1],m);}).join(' · ')+'">'+
-        '<span class="chart-plot">'+series.map(function(s){var q=qtdMes(s[1],m);
-          return '<span class="chart-bar" style="background:'+s[2]+';height:'+(q?Math.max(3,Math.round(q/maxQ*104)):0)+'px"></span>';}).join('')+'</span>'+
-        '<span class="chart-lbl">'+esc(mesCurto(m))+'</span></div>';
-    }).join('')+'</div>'+
-    '<div class="chart-legend">'+series.map(function(s){return '<span><i class="chart-dot" style="background:'+s[2]+'"></i>'+s[0]+'</span>';}).join('')+'</div>';
-  }
-  $('#perDetalhe').hidden=perModo!=='detalhado';
-  $$('#perModoSeg .step-pill').forEach(function(b){b.setAttribute('aria-current',b.dataset.perModo===perModo?'true':'false');});
-}
-/* Períodos: Resumido (resumo + avisos) ou Detalhado (+ cobertura e notas por mês).
-   Preferência de quem está usando, guardada só neste navegador. */
-var perModo=(function(){try{return localStorage.getItem('conferencia-periodos-modo')||'resumido';}catch(e){return 'resumido';}})();
-document.addEventListener('click',function(e){
-  var b=e.target.closest('[data-per-modo]');if(!b)return;
-  perModo=b.dataset.perModo;
-  try{localStorage.setItem('conferencia-periodos-modo',perModo);}catch(err){}
-  renderPeriodos();
-});
 function renderImportadas(tipo){
   var box=$(tipo==='entradas'?'#impViewEntradas':'#impViewSaidas');
   if(!atual||!box)return;
