@@ -798,6 +798,10 @@
   #confServStats .stat-label{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
   #confServStats .stat-value{font-size:20px;white-space:nowrap;}
   @media (max-width:900px){#confServStats{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));}}
+
+  /* consulta › Todos: tipo da nota */
+  .cons-tipo{display:inline-flex;align-items:center;gap:7px;font-size:12.5px;color:var(--ink-muted);white-space:nowrap;}
+  .cons-tipo i{width:7px;height:7px;border-radius:50%;flex:none;}
 </style>
 </head>
 <body>
@@ -1135,12 +1139,14 @@
       <!-- ============ MOVIMENTO · CONSULTA ============ -->
       <section id="view-mov-consulta" hidden>
         <div class="steps" id="consSeg">
+          <button class="step-pill" data-cons-tipo="todos" type="button">Todos</button>
           <button class="step-pill" data-cons-tipo="entradas" type="button">Entradas</button>
           <button class="step-pill" data-cons-tipo="saidas" type="button">Saídas</button>
           <button class="step-pill" data-cons-tipo="tomados" type="button">Tomados</button>
           <button class="step-pill" data-cons-tipo="prestados" type="button">Prestados</button>
         </div>
-        <div id="consulta-entradas"></div>
+        <div id="consulta-todos"></div>
+        <div id="consulta-entradas" hidden></div>
         <div id="consulta-saidas" hidden></div>
         <div id="consulta-prestados" hidden></div>
         <div id="consulta-tomados" hidden></div>
@@ -1213,7 +1219,7 @@
 (function(){
 "use strict";
 
-var APP_VERSION='beta 0.1.4';
+var APP_VERSION='beta 0.1.5';
 document.querySelectorAll('#verLogin,#verApp,#verDrawer').forEach(function(el){el.textContent='Versão: '+APP_VERSION;});
 
 /* ============================== ícones ============================== */
@@ -1695,7 +1701,7 @@ function aplicarBloqueios(){
   // se o recorte aberto ficou travado, volta pra um que tem dados
   if(confAbaAtual!=='geral'&&!tem[confAbaAtual])confAbaAtual='geral';
   if(ccState.tipo==='Entrada'&&!tem.entradas||ccState.tipo==='Saída'&&!tem.saidas)ccState.tipo='';
-  if(!tem[consultaTipo]&&tem[consultaTipo==='entradas'?'saidas':'entradas'])consultaTipo=consultaTipo==='entradas'?'saidas':'entradas';
+  if(consultaTipo!=='todos'&&!tem[consultaTipo])consultaTipo='todos';
 }
 /* ---- ocultar barra lateral: vira um trilho só de ícones e o conteúdo estica ---- */
 var SIDEBAR_KEY='conferencia-sidebar-oculta';
@@ -2604,19 +2610,33 @@ $('#btImpSai').onclick=function(){
 
 /* ============================== consulta de notas ============================== */
 var filtro={entradas:{de:'',ate:'',sortCol:'data',sortDir:'asc',q:'',ordemDiv:'cfop'},saidas:{de:'',ate:'',sortCol:'data',sortDir:'asc',q:'',ordemDiv:'cfop'},
-  prestados:{de:'',ate:'',sortCol:'data',sortDir:'asc',q:''},tomados:{de:'',ate:'',sortCol:'data',sortDir:'asc',q:''}};
+  prestados:{de:'',ate:'',sortCol:'data',sortDir:'asc',q:''},tomados:{de:'',ate:'',sortCol:'data',sortDir:'asc',q:''},
+  todos:{de:'',ate:'',sortCol:'data',sortDir:'asc',q:''}};
+// "Todos": entradas, saídas, tomados e prestados juntos, cada nota marcada com o tipo dela
+var CONS_TIPOS=[['entradas','Entrada','var(--danger)'],['saidas','Saída','var(--success)'],['tomados','Tomado','var(--warn)'],['prestados','Prestado','var(--accent)']];
+function listaConsulta(tipo){
+  if(tipo!=='todos')return listaTipo(tipo);
+  var out=[];
+  CONS_TIPOS.forEach(function(t,i){(listaTipo(t[0])||[]).forEach(function(n){out.push(Object.assign({},n,{_tipo:t[0],_ordem:i}));});});
+  return out;
+}
+function consTipoHtml(n){
+  var t=CONS_TIPOS.filter(function(x){return x[0]===n._tipo;})[0];
+  return t?'<span class="cons-tipo"><i style="background:'+t[2]+'"></i>'+t[1]+'</span>':'';
+}
 var SORT_CAMPOS={
   data:function(n){return dataOrdem(n.data);},
   numero:function(n){return n.numero||'';},
   nome:function(n){return (n.nome||'').toLowerCase();},
   cfop:function(n){return n.cfop||'';},
   lanc:function(n){return n.lanc||'';},
-  valor:function(n){return n.valor;}
+  valor:function(n){return n.valor;},
+  tipo:function(n){return n._ordem||0;}
 };
 function filtrar(tipo){
   var f=filtro[tipo],q=f.q.toLowerCase();
   var de=f.de&&f.de.length===10?dataOrdem(f.de):0,ate=f.ate&&f.ate.length===10?dataOrdem(f.ate):0;
-  return listaTipo(tipo).filter(function(n){
+  return listaConsulta(tipo).filter(function(n){
     var t=dataOrdem(n.data);
     return (!de||t>=de)&&(!ate||t<=ate)&&
       (!q||n.nome.toLowerCase().indexOf(q)>-1||n.numero.indexOf(q)>-1||(n.cfop||'').indexOf(q)>-1||(n.lanc||'').indexOf(q)>-1);
@@ -2633,6 +2653,8 @@ function thSort(tipo,campo,label,extraClass){
    (Movimento › Conferência › Entradas/Saídas) e a lista de naturezas. */
 function renderNotas(tipo){
   if(!atual)return;
+  if(tipo==='todos'){renderConsulta('todos');return;}
+  if(consultaTipo==='todos')renderConsulta('todos');
   if(ehServ(tipo)){renderConsulta(tipo);return;} // serviços: só a consulta usa esse caminho
   renderImportadas(tipo);
   renderConsulta(tipo);
@@ -2764,11 +2786,11 @@ function renderImportadas(tipo){
 function renderConsulta(tipo){
   var box=$('#consulta-'+tipo);
   if(!atual||!box)return;
-  var todas=listaTipo(tipo),serv=ehServ(tipo);
+  var todas=listaConsulta(tipo),serv=ehServ(tipo),tudo=tipo==='todos';
   var nome=serv?SV[tipo].rotulo.toLowerCase():(tipo==='entradas'?'entrada':'saída');
   if(!todas.length){
-    box.innerHTML='<div class="gh-box"><div class="gh-blank">'+svg('search')+'<h4>Nenhuma nota de '+nome+' guardada</h4>'+
-      '<p>Importe o relatório em Importação › '+(serv?SV[tipo].rotulo:(tipo==='entradas'?'Entradas':'Saídas'))+'.</p></div></div>';
+    box.innerHTML='<div class="gh-box"><div class="gh-blank">'+svg('search')+'<h4>'+(tudo?'Nenhuma nota guardada':'Nenhuma nota de '+nome+' guardada')+'</h4>'+
+      '<p>'+(tudo?'Importe os relatórios em Importação.':'Importe o relatório em Importação › '+(serv?SV[tipo].rotulo:(tipo==='entradas'?'Entradas':'Saídas'))+'.')+'</p></div></div>';
     return;
   }
   var f=filtro[tipo];
@@ -2778,11 +2800,11 @@ function renderConsulta(tipo){
   var corpo=!l.length?
     '<div class="gh-blank">'+svg('search')+'<h4>Nenhuma nota bate com a busca</h4><p>Tente outro nome, número, CFOP ou período.</p></div>':
     '<div class="table-wrap"><table><thead><tr>'+
-      thSort(tipo,'data','Data')+thSort(tipo,'numero','Nota')+thSort(tipo,'nome',serv?(tipo==='prestados'?'Cliente':'Fornecedor'):'Fornecedor / cliente')+
+      (tudo?thSort(tipo,'tipo','Tipo'):'')+thSort(tipo,'data','Data')+thSort(tipo,'numero','Nota')+thSort(tipo,'nome',serv?(tipo==='prestados'?'Cliente':'Fornecedor'):'Fornecedor / cliente')+
       (serv?'':thSort(tipo,'cfop','CFOP'))+thSort(tipo,'lanc','Lanç.')+thSort(tipo,'valor','Valor','num')+
     '</tr></thead><tbody>'+
-      l.slice(0,400).map(function(n){return '<tr><td>'+esc(n.data)+'</td><td>'+esc(n.numero)+'</td><td class="wrap">'+esc(n.nome)+'</td>'+
-        (serv?'':'<td>'+esc(n.cfop)+'</td>')+'<td>'+esc(n.lanc||'—')+'</td><td class="num">'+brl(n.valor)+'</td></tr>';}).join('')+
+      l.slice(0,400).map(function(n){return '<tr>'+(tudo?'<td>'+consTipoHtml(n)+'</td>':'')+'<td>'+esc(n.data)+'</td><td>'+esc(n.numero)+'</td><td class="wrap">'+esc(n.nome)+'</td>'+
+        (serv?'':'<td>'+esc(n.cfop||'—')+'</td>')+'<td>'+esc(n.lanc||'—')+'</td><td class="num">'+brl(n.valor)+'</td></tr>';}).join('')+
     '</tbody></table></div>'+
     (l.length>400?'<p class="hint" style="padding:8px 16px">Mostrando 400 de '+l.length+'. Refine a busca ou baixe o CSV.</p>':'');
   box.innerHTML=
@@ -3014,7 +3036,7 @@ document.addEventListener('click',function(e){
 document.addEventListener('keydown',function(e){
   if(e.key!=='Enter')return;
   var id=e.target.id||'';
-  var m=/^f(De|Ate|Q)-(entradas|saidas|prestados|tomados)$/.exec(id);
+  var m=/^f(De|Ate|Q)-(todos|entradas|saidas|prestados|tomados)$/.exec(id);
   if(m)notasPesquisar(m[2]);
 });
 document.addEventListener('click',function(e){
@@ -3028,8 +3050,11 @@ document.addEventListener('click',function(e){
   var b=e.target.closest('[data-csv],[data-limpa]');if(!b)return;
   var d=b.dataset;
   if(d.csv){
-    var l=filtrar(d.csv),sv=ehServ(d.csv),L=[sv?'Data;Nota;Participante;CNPJ;Lançamento;Valor':'Data;Nota;Fornecedor;CFOP;Natureza;Lançamento;Valor'];
-    l.forEach(function(n){L.push((sv?[n.data,n.numero,n.nome,n.cnpj,n.lanc,brl(n.valor)]:[n.data,n.numero,n.nome,n.cfop,n.desc,n.lanc,brl(n.valor)]).join(';'));});
+    var l=filtrar(d.csv),sv=ehServ(d.csv),tudo=d.csv==='todos';
+    var L=[tudo?'Tipo;Data;Nota;Participante;CFOP;Lançamento;Valor':sv?'Data;Nota;Participante;CNPJ;Lançamento;Valor':'Data;Nota;Fornecedor;CFOP;Natureza;Lançamento;Valor'];
+    var rotTipo={};CONS_TIPOS.forEach(function(t){rotTipo[t[0]]=t[1];});
+    l.forEach(function(n){L.push((tudo?[rotTipo[n._tipo],n.data,n.numero,n.nome,n.cfop||'',n.lanc,brl(n.valor)]:
+      sv?[n.data,n.numero,n.nome,n.cnpj,n.lanc,brl(n.valor)]:[n.data,n.numero,n.nome,n.cfop,n.desc,n.lanc,brl(n.valor)]).join(';'));});
     dl(L.join('\n'),d.csv+'-'+(atual||'').replace(/\W+/g,'-').toLowerCase()+'.csv','text/csv');
   }
   if(d.limpa){
@@ -3098,7 +3123,7 @@ function agruparTotaisPorNatureza(notas){
 function periodoKeyCc(){return 'data|'+ccState.dataDe+'|'+ccState.dataAte+(ccState.meses.length?'|'+ccState.meses.slice().sort().join(','):'');}
 /* controles segmentados de Movimento: Conferência (Geral/Entradas/Saídas),
    Naturezas (Todos/Entradas/Saídas) e Consulta (Entradas/Saídas) */
-var confAbaAtual='geral',consultaTipo='entradas';
+var confAbaAtual='geral',consultaTipo='todos';
 function confAba(nome){
   confAbaAtual=nome;
   $$('#confSeg .step-pill').forEach(function(b){b.setAttribute('aria-current',b.dataset.confAba===nome?'true':'false');});
@@ -3113,7 +3138,7 @@ function confAba(nome){
 function consAba(t){
   consultaTipo=t;
   $$('#consSeg .step-pill').forEach(function(b){b.setAttribute('aria-current',b.dataset.consTipo===t?'true':'false');});
-  ['entradas','saidas','prestados','tomados'].forEach(function(x){$('#consulta-'+x).hidden=t!==x;});
+  ['todos','entradas','saidas','prestados','tomados'].forEach(function(x){$('#consulta-'+x).hidden=t!==x;});
   renderConsulta(t);
   renderTopActions();
 }
