@@ -416,6 +416,12 @@
   .modal{background:var(--surface);border-radius:12px;box-shadow:var(--shadow-lg);max-width:448px;width:100%;padding:0;overflow:hidden;
     animation:popIn .18s ease-out both;}
   .modal-icon{display:none;}
+  .modal.modal-ok{text-align:center;}
+  .modal.modal-ok .modal-icon{display:flex;justify-content:center;padding:24px 16px 0;color:var(--success);}
+  .modal.modal-ok .modal-icon svg{width:48px;height:48px;}
+  .modal.modal-ok h3{border-bottom:0;font-size:16px;padding:12px 16px 0;}
+  .modal.modal-ok p{padding:8px 24px 20px;color:var(--ink-muted);}
+  .modal.modal-ok .modal-actions{justify-content:center;}
   .modal h3{font-size:14px;font-weight:600;padding:16px;border-bottom:1px solid var(--border);margin:0;}
   .modal p{font-size:14px;color:var(--ink);padding:16px;}
   .modal p b{font-weight:600;}
@@ -1268,7 +1274,7 @@
           <div id="vcResultado"></div>
           <div class="btn-row" style="justify-content:flex-end;">
             <button class="btn btn-outline" id="vcBtCsv" type="button">Baixar resultado</button>
-            <button class="btn btn-primary" id="vcBtReimportar" type="button">Reimportar</button>
+            <button class="btn btn-primary" id="vcBtReimportar" type="button">Corrigi, quero reconferir</button>
             <button class="btn btn-primary" id="vcBtOk" type="button" hidden>Ok</button>
           </div>
         </div>
@@ -1293,7 +1299,7 @@
 (function(){
 "use strict";
 
-var APP_VERSION='beta 0.1.26';
+var APP_VERSION='beta 0.1.27';
 document.querySelectorAll('#verLogin,#verApp,#verDrawer').forEach(function(el){el.textContent='Versão: '+APP_VERSION;});
 
 /* ============================== ícones ============================== */
@@ -1394,6 +1400,7 @@ function modal(o){
   return new Promise(function(res){
     var ov=$('#modalOverlay');
     $('#modalIcon').innerHTML=svg(o.icon||'landmark');
+    ov.querySelector('.modal').classList.toggle('modal-ok',o.tom==='ok');
     $('#modalTitle').textContent=o.title;
     $('#modalText').innerHTML=o.text;
     var a=$('#modalActions');a.innerHTML='';
@@ -3621,7 +3628,7 @@ $('#vcBtImportarRazao').onclick=function(){
     vc.razaoLinhas=linhas;
     info.innerHTML='<div class="alert" style="border-color:var(--success);background:var(--success-soft);color:var(--success-ink)">'+svg('checkCircle')+
       '<div><p class="alert-title">'+linhas.length+' lançamento(s) lidos do relatório</p></div></div>';
-    if(vc.reimportando){vc.reimportando=false;$('#vcBtConferir').click();}
+    if(vc.reimportando){vc.reimportando=false;vc.reconferindo=true;$('#vcBtConferir').click();}
   }).catch(function(e){if(vc.reimportando){vc.reimportando=false;toast('Não deu para ler o arquivo.');}alerta(info,'Não deu para ler o arquivo',esc(e.message||''));});
 };
 // o relatório é lido assim que o arquivo é escolhido — o usuário só sobe o arquivo e clica em Conferir
@@ -3673,6 +3680,7 @@ $('#vcBtConferir').onclick=function(){
     return;
   }
   btn.disabled=true;var textoOriginal=btn.textContent;btn.textContent='Comparando…';
+  var reconferindo=!!vc.reconferindo;vc.reconferindo=false;
   // adia um instante só pra o navegador desenhar o "Comparando…" antes de travar a aba com a conta.
   setTimeout(function(){
     try{
@@ -3726,6 +3734,10 @@ $('#vcBtConferir').onclick=function(){
       vcRenderResultado();
       vcMostrarResultado(true);
       $('#vcResultadoCard').scrollIntoView({behavior:'smooth',block:'start'});
+      if(reconferindo&&!faltando.length&&!duplicada.length&&!aMais.length)
+        modal({tom:'ok',icon:'checkCircle',title:'Tudo certo!',
+          text:'A conta <b>'+esc(vc.conta.codigo)+' — '+esc(vc.conta.nome)+'</b> não tem mais pendências e ficou <b>Ok</b> na Conferência.',
+          buttons:[{label:'Ok',value:true,variant:'btn-primary'}]});
     }catch(e){
       toast('Não deu para comparar: '+(e&&e.message||e));
     }finally{
