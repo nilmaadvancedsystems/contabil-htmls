@@ -696,6 +696,13 @@
   .lanc-dica{font-size:12px;color:var(--ink-muted);}
   .lanc-global{border:1px solid var(--border);border-radius:6px;padding:12px 14px;margin-bottom:12px;background:var(--surface);}
   .serv-parts-sub{font-size:12px;color:var(--ink-muted);margin:3px 0 0;font-weight:400;}
+
+  /* progresso do cadastro (naturezas vinculadas) — linha fininha na base do botão */
+  #cadSeg .step-pill{position:relative;}
+  .pill-prog{position:absolute;left:12px;right:12px;bottom:3px;height:2px;border-radius:2px;background:var(--border);overflow:hidden;pointer-events:none;}
+  .pill-prog i{display:block;height:100%;border-radius:2px;background:var(--accent);transition:width .35s ease;}
+  .pill-prog.completo i{background:var(--success);}
+  @media (prefers-reduced-motion:reduce){.pill-prog i{transition:none;}}
 </style>
 </head>
 <body>
@@ -1115,7 +1122,7 @@
 (function(){
 "use strict";
 
-var APP_VERSION='beta 0.0.96';
+var APP_VERSION='beta 0.0.97';
 document.querySelectorAll('#verLogin,#verApp,#verDrawer').forEach(function(el){el.textContent='Versão: '+APP_VERSION;});
 
 /* ============================== ícones ============================== */
@@ -1520,7 +1527,9 @@ function cadAba(t){
   cadTipo=t;
   $$('#cadSeg .step-pill').forEach(function(b){
     var c=contadorCad(b.dataset.cadTipo);
-    b.innerHTML=(b.dataset.cadTipo==='entradas'?'Entradas':'Saídas')+(c.tot?'<b>'+c.lig+'/'+c.tot+'</b>':'');
+    var pct=c.tot?Math.round(c.lig/c.tot*100):0,txt=c.lig+' de '+c.tot+' naturezas com conta vinculada';
+    b.innerHTML=(b.dataset.cadTipo==='entradas'?'Entradas':'Saídas')+
+      (c.tot?'<span class="pill-prog'+(c.lig===c.tot?' completo':'')+'" role="progressbar" aria-valuemin="0" aria-valuemax="'+c.tot+'" aria-valuenow="'+c.lig+'" aria-label="'+txt+'" title="'+txt+'"><i style="width:'+pct+'%"></i></span>':'');
     b.setAttribute('aria-current',b.dataset.cadTipo===t?'true':'false');
   });
   $('#ndpBoxEnt').hidden=t!=='entradas';
