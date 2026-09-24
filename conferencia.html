@@ -749,6 +749,29 @@
   .serv-add-campo{position:relative;flex:1 1 230px;min-width:0;}
   .serv-add-campo input[type="text"]{width:100%;}
   .serv-lista{position:absolute;top:100%;left:0;right:0;margin-top:4px;z-index:30;box-shadow:var(--shadow-lg);max-height:280px;overflow-y:auto;border-radius:12px;}
+
+  /* honorário: só o cadeado */
+  .serv-cadeado{display:inline-flex;margin-left:8px;color:var(--ink-muted);vertical-align:-2px;}
+  .serv-cadeado svg{width:14px;height:14px;}
+  /* fornecedor + conta: conta menor, lista larga com o nome */
+  .serv-add-campo.conta{flex:0 0 130px;}
+  .serv-add-campo.conta .serv-lista{right:auto;width:min(380px,80vw);}
+  .serv-add-campo input[type="text"]:disabled{opacity:.5;cursor:not-allowed;}
+  .serv-add-form .btn:disabled{opacity:.5;cursor:not-allowed;}
+  /* lançamento à vista embaixo do CFOP */
+  .vista-row{display:flex;flex-wrap:wrap;align-items:center;gap:6px 12px;margin:8px 0 10px;}
+  .vista-add{display:inline-flex;align-items:center;gap:5px;min-height:26px;padding:2px 11px 2px 8px;border:1px dashed var(--border-strong,var(--border));
+    border-radius:2em;background:none;color:var(--ink-muted);font:inherit;font-size:12.5px;cursor:pointer;transition:color .12s ease,border-color .12s ease,background .12s ease;}
+  .vista-add:hover{color:var(--ink);border-style:solid;background:var(--hover-bg);}
+  .vista-add svg{width:13px;height:13px;}
+  .vista-pill{display:inline-flex;align-items:center;min-height:26px;border:1px solid var(--border);border-radius:2em;background:var(--hover-bg);font-size:12.5px;overflow:hidden;}
+  .vista-pill-txt{border:none;background:none;color:var(--ink-muted);font:inherit;padding:2px 4px 2px 11px;cursor:pointer;}
+  .vista-pill-txt b{color:var(--ink);font-weight:600;font-variant-numeric:tabular-nums;margin-left:3px;}
+  .vista-pill-x{border:none;background:none;color:var(--ink-muted);cursor:pointer;padding:0 10px 0 6px;font-size:15px;line-height:1;}
+  .vista-pill-x:hover{color:var(--danger);}
+  .vista-edit{display:inline-flex;align-items:center;gap:4px;}
+  input[type="text"].vista-inp{width:88px;min-height:0;height:26px;padding:2px 9px;font-size:12.5px;font-variant-numeric:tabular-nums;}
+  .vista-info{font-size:12px;color:var(--ink-muted);}
 </style>
 </head>
 <body>
@@ -1168,11 +1191,14 @@
 (function(){
 "use strict";
 
-var APP_VERSION='beta 0.1.0';
+var APP_VERSION='beta 0.1.1';
 document.querySelectorAll('#verLogin,#verApp,#verDrawer').forEach(function(el){el.textContent='Versão: '+APP_VERSION;});
 
 /* ============================== ícones ============================== */
 var ICONS = {
+  briefcase:'<rect x="2.5" y="7" width="19" height="13" rx="2"/><path d="M8.5 7V5a2 2 0 0 1 2-2h3a2 2 0 0 1 2 2v2"/><path d="M2.5 12.5h19"/>',
+  fileDown:'<path d="M14.5 2.5H6.5a2 2 0 0 0-2 2v15a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2V7.5Z"/><path d="M14.5 2.5v5h5"/><path d="M12 11v6"/><path d="m9.5 14.5 2.5 2.5 2.5-2.5"/>',
+  fileUp:'<path d="M14.5 2.5H6.5a2 2 0 0 0-2 2v15a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2V7.5Z"/><path d="M14.5 2.5v5h5"/><path d="M12 17v-6"/><path d="m9.5 13.5 2.5-2.5 2.5 2.5"/>',
   zap:'<path d="M13 2 3 14h9l-1 8 10-12h-9l1-8z"/>',
   home:'<path d="M3 11.5 12 4l9 7.5"/><path d="M5.5 10v9.5h13V10"/><path d="M10 19.5v-6h4v6"/>',
   landmark:'<path d="M3 21h18"/><path d="M5 21v-8.5"/><path d="M19 21v-8.5"/><path d="M9.5 21v-8.5"/><path d="M14.5 21v-8.5"/><path d="M2.5 9 12 3l9.5 6Z"/>',
@@ -1490,12 +1516,12 @@ var SECOES=[
     {v:'imp-balancete',label:'Balancete',icon:'landmark'},
     {v:'imp-entradas',label:'Entradas',icon:'arrowDown'},
     {v:'imp-saidas',label:'Saídas',icon:'arrowUp'},
-    {v:'imp-tomados',label:'Tomados',icon:'fileText'},
-    {v:'imp-prestados',label:'Prestados',icon:'fileText'},
+    {v:'imp-tomados',label:'Tomados',icon:'fileDown'},
+    {v:'imp-prestados',label:'Prestados',icon:'fileUp'},
     {v:'imp-periodos',label:'Períodos',icon:'calendar'}]},
   {id:'cadastro',grupo:1,label:'Cadastro',icon:'link',itens:[
     {v:'cad-cfop',label:'NFEs',icon:'link'},
-    {v:'cad-servicos',label:'NFSEs',icon:'fileText'}]},
+    {v:'cad-servicos',label:'NFSEs',icon:'briefcase'}]},
   {id:'movimento',grupo:2,label:'Movimento',icon:'repeat',itens:[
     {v:'mov-conferencia',label:'Conferência',icon:'checkCircle'},
     {v:'mov-naturezas',label:'Naturezas',icon:'list'},
@@ -1573,10 +1599,7 @@ function cadAba(t){
   if(!$('#cadSeg'))return;
   cadTipo=t;
   $$('#cadSeg .step-pill').forEach(function(b){
-    var c=contadorCad(b.dataset.cadTipo);
-    var pct=c.tot?Math.round(c.lig/c.tot*100):0,txt=c.lig+' de '+c.tot+' naturezas com conta vinculada';
-    b.innerHTML=(b.dataset.cadTipo==='entradas'?'Entradas':'Saídas')+
-      (c.tot?'<span class="pill-prog'+(c.lig===c.tot?' completo':'')+'" role="progressbar" aria-valuemin="0" aria-valuemax="'+c.tot+'" aria-valuenow="'+c.lig+'" aria-label="'+txt+'" title="'+txt+'"><i style="width:'+pct+'%"></i></span>':'');
+    b.textContent=b.dataset.cadTipo==='entradas'?'Entradas':'Saídas';
     b.setAttribute('aria-current',b.dataset.cadTipo===t?'true':'false');
   });
   $('#ndpBoxEnt').hidden=t!=='entradas';
@@ -1937,36 +1960,57 @@ function vendaVistaCard(){
     (semDoc?'<p class="hint" style="margin:8px 0 0;color:var(--danger)">As saídas guardadas não têm a coluna CPF/CNPJ. Reimporte as saídas (Importar apenas novas) pro sistema reconhecer as vendas no CPF.</p>':'')+
   '</div>';
 }
-// campo do lançamento à vista, embaixo do nome de cada CFOP de venda (só com Vendas à vista ligado)
+// lançamento à vista embaixo do nome de cada CFOP de venda (só com Vendas à vista ligado):
+// sem nada → botão "+ Lançamento à vista"; cadastrado → pílula cinza (clica pra alterar, × remove)
+var vistaEditando=null;
 function vistaRowCfop(k,gr){
   var v=emp().vendaVista||{};if(!v.ativo)return '';
   if(!gr.cfops.some(function(cf){return ehCfopVenda({cfop:cf,desc:gr.desc});}))return '';
   var cont={},qtd=0,maior=null;
   gr.itens.forEach(function(n){if(ehVendaVista(n)){qtd++;var l=lancN(n.lanc);if(l)cont[l]=(cont[l]||0)+1;}});
   Object.keys(cont).forEach(function(l){if(!maior||cont[l]>cont[maior])maior=l;});
-  var val=(v.lancs||{})[k]||'';
-  return '<div class="vista-row"><label class="lanc-mini"><span>Lançamento à vista</span>'+
-    '<input type="text" class="lanc-inp'+(val?' preenchido':'')+'" data-vista-cfop="'+esc(k)+'" inputmode="numeric" maxlength="6" placeholder="'+esc(maior||'Código')+'" value="'+esc(val)+'" aria-label="Lançamento das vendas à vista deste CFOP"></label>'+
-    '<span class="lanc-dica">'+qtd+' nota(s) à vista'+(!val&&maior?' · vazio: vale o que mais aparece nelas ('+esc(maior)+')':'')+'</span></div>';
+  var val=(v.lancs||{})[k]||'',corpo;
+  if(vistaEditando===k)
+    corpo='<span class="vista-edit"><input type="text" class="vista-inp" data-vista-cfop="'+esc(k)+'" inputmode="numeric" maxlength="6" placeholder="'+esc(maior||'Código')+'" value="'+esc(val)+'" aria-label="Lançamento à vista">'+
+      '<button type="button" class="icon-btn icon-btn-sm" data-vista-ok="'+esc(k)+'" title="Salvar (Enter)" aria-label="Salvar">'+svg('check')+'</button>'+
+      '<button type="button" class="icon-btn icon-btn-sm" data-vista-cancel title="Cancelar (Esc)" aria-label="Cancelar">'+svg('x')+'</button></span>';
+  else if(val)
+    corpo='<span class="vista-pill"><button type="button" class="vista-pill-txt" data-vista-edit="'+esc(k)+'" title="Alterar o lançamento à vista">À vista <b>'+esc(val)+'</b></button>'+
+      '<button type="button" class="vista-pill-x" data-vista-rm="'+esc(k)+'" title="Remover" aria-label="Remover o lançamento à vista">&times;</button></span>';
+  else
+    corpo='<button type="button" class="vista-add" data-vista-edit="'+esc(k)+'">'+svg('plus')+'Lançamento à vista</button>';
+  return '<div class="vista-row">'+corpo+
+    '<span class="vista-info">'+(qtd?qtd+' nota'+(qtd>1?'s':'')+' à vista':'nenhuma nota à vista')+(!val&&maior?' · nas notas sai o '+esc(maior):'')+'</span></div>';
 }
 function vistaSalvar(msg){save();renderNaturezaDePara();if(view==='mov-conferencia')confAba(confAbaAtual);toast(msg);}
+function vistaGravar(k,valor){
+  var l=vendaVistaCfg().lancs,novo=String(valor||'').replace(/\D/g,'');vistaEditando=null;
+  if(novo===(l[k]||'')){renderNaturezaDePara();return;}
+  if(novo)l[k]=novo;else delete l[k];
+  vistaSalvar(novo?'Lançamento à vista: '+novo+'.':'Lançamento à vista removido — vale o que mais aparece nas vendas à vista.');
+}
 document.addEventListener('click',function(e){
   if(!atual)return;
-  var b=e.target.closest('[data-toggle-vista]');if(!b)return;
-  var v=vendaVistaCfg();v.ativo=!v.ativo;
-  vistaSalvar(v.ativo?'Vendas à vista ligado — preencha o lançamento à vista nos CFOPs de venda.':'Vendas à vista desligado — o CPF segue o lançamento do CNPJ.');
+  var b=e.target.closest('[data-toggle-vista]');
+  if(b){var v=vendaVistaCfg();v.ativo=!v.ativo;
+    vistaSalvar(v.ativo?'Vendas à vista ligado — adicione o lançamento à vista nos CFOPs de venda.':'Vendas à vista desligado — o CPF segue o lançamento do CNPJ.');return;}
+  b=e.target.closest('[data-vista-edit]');
+  if(b){vistaEditando=b.dataset.vistaEdit;renderNaturezaDePara();
+    var i=document.querySelector('.vista-inp');if(i){i.focus();i.select();}return;}
+  b=e.target.closest('[data-vista-ok]');
+  if(b){var inp=b.closest('.vista-edit').querySelector('.vista-inp');vistaGravar(b.dataset.vistaOk,inp.value);return;}
+  if(e.target.closest('[data-vista-cancel]')){vistaEditando=null;renderNaturezaDePara();return;}
+  b=e.target.closest('[data-vista-rm]');
+  if(b)vistaGravar(b.dataset.vistaRm,'');
 });
 document.addEventListener('input',function(e){
-  if(!e.target.dataset||e.target.dataset.vistaCfop==null)return;
+  if(!e.target.classList||!e.target.classList.contains('vista-inp'))return;
   var v=e.target.value.replace(/\D/g,'');if(v!==e.target.value)e.target.value=v;
 });
-document.addEventListener('keydown',function(e){if(e.key==='Enter'&&e.target.dataset&&e.target.dataset.vistaCfop!=null)e.target.blur();});
-document.addEventListener('change',function(e){
-  var k=e.target.dataset&&e.target.dataset.vistaCfop;if(k==null)return;
-  var l=vendaVistaCfg().lancs,novo=e.target.value.replace(/\D/g,'');
-  if(novo===(l[k]||''))return;
-  if(novo)l[k]=novo;else delete l[k];
-  vistaSalvar(novo?'Lançamento à vista: '+novo+'.':'Lançamento à vista vazio — vale o que mais aparece nas vendas à vista.');
+document.addEventListener('keydown',function(e){
+  if(!e.target.classList||!e.target.classList.contains('vista-inp'))return;
+  if(e.key==='Enter'){e.preventDefault();vistaGravar(e.target.dataset.vistaCfop,e.target.value);}
+  else if(e.key==='Escape'){vistaEditando=null;renderNaturezaDePara();}
 });
 function naturezasDaConta(codigo){
   var nc=emp().naturezaConta;
@@ -3737,7 +3781,7 @@ function servApagar(tipo){
 }
 ['prestados','tomados'].forEach(function(t){
   var s=SV[t].suf;
-  $('#impIco'+s).innerHTML=svg('fileText');
+  $('#impIco'+s).innerHTML=svg(t==='tomados'?'fileDown':'fileUp');
   wireFilePicker('#f'+s,'#f'+s+'Nome','#f'+s+'Clear');
   $('#btImp'+s).onclick=function(){if(this.classList.contains('btn-import-done')){servApagar(t);return;}importarServ(t);};
   $('#btExcluir'+s).onclick=function(){$('#msg'+s).innerHTML='';servApagar(t);};
@@ -3769,7 +3813,7 @@ function renderServImportados(tipo){
 var SERV_CAT={
   tomados:[
     {id:'geral',nome:'Serviços tomados gerais',lanc:'527',dica:'Todos os fornecedores que não estão numa categoria abaixo.'},
-    {id:'honorario',nome:'Honorário',lanc:'42',travado:true,fixos:['NILMA DIAS OLIVEIRA','NILMA CONTABILIDADE'],fixosRot:['NILMA DIAS OLIVEIRA - ME','NILMA CONTABILIDADE LTDA'],dica:'Permanente — os fornecedores de honorário não mudam.'},
+    {id:'honorario',nome:'Honorário',lanc:'42',travado:true,fixos:['NILMA DIAS OLIVEIRA','NILMA CONTABILIDADE'],fixosRot:['NILMA DIAS OLIVEIRA - ME','NILMA CONTABILIDADE LTDA'],dica:'Os fornecedores de honorário são fixos.'},
     {id:'telefone',nome:'Telefone',lanc:'38',dica:'Fornecedores de serviço de telefone.'},
     {id:'internet',nome:'Internet',lanc:'38',dica:'Fornecedores de serviço de internet.'},
     {id:'viagem',nome:'Despesas de viagem',lanc:'259',dica:'Hotel, hospedagem, passagem e demais despesas de viagem.'},
@@ -3834,9 +3878,9 @@ function servFormHtml(t,cat){
     '<div class="serv-add-form" hidden>'+
       '<div class="serv-add-campo"><input type="text" class="serv-forn-input" placeholder="Fornecedor" autocomplete="off" aria-label="Fornecedor">'+
         '<div class="table-wrap serv-lista serv-forn-lista" hidden></div></div>'+
-      '<div class="serv-add-campo"><input type="text" class="serv-conta-input" placeholder="Conta — nome ou código" autocomplete="off" aria-label="Conta contábil">'+
+      '<div class="serv-add-campo conta"><input type="text" class="serv-conta-input" placeholder="Conta" autocomplete="off" aria-label="Conta contábil (escolha o fornecedor primeiro)" disabled>'+
         '<div class="table-wrap serv-lista serv-conta-lista" hidden></div></div>'+
-      '<button type="button" class="btn btn-primary btn-sm" data-serv-add-ok>Adicionar</button>'+
+      '<button type="button" class="btn btn-primary btn-sm" data-serv-add-ok disabled>Adicionar</button>'+
       '<button type="button" class="btn btn-sm" data-serv-add-cancel>Cancelar</button>'+
     '</div></div>';
 }
@@ -3876,21 +3920,28 @@ function renderCadServ(){
           sug.map(function(k){return '<button type="button" class="btn btn-sm" data-serv-sug="'+t+'|'+c.id+'" data-nome="'+esc(parts[k].nome)+'">'+svg('plus')+esc(parts[k].nome)+'</button>';}).join('')+'</div>':'');
     }
     return '<div class="ndp-item serv-cat">'+
-      '<div class="ndp-natureza">'+esc(c.nome)+'<span class="badge badge-neutral">Lançamento '+esc(c.lanc)+'</span>'+(c.travado?'<span class="badge badge-neutral">'+svg('lock')+'Permanente</span>':'')+
+      '<div class="ndp-natureza">'+esc(c.nome)+'<span class="badge badge-neutral">Lançamento '+esc(c.lanc)+'</span>'+(c.travado?'<span class="serv-cadeado" title="Permanente — não muda" aria-label="Permanente">'+svg('lock')+'</span>':'')+
         '<span class="ndp-sub">'+esc(c.dica)+'</span></div>'+corpo+
     '</div>';
   }).join('')+'</div>';
 }
+// conta só libera depois do fornecedor; "Adicionar" só com os dois escolhidos
+function servFormEstado(w){
+  var fi=w.querySelector('.serv-forn-input'),ci=w.querySelector('.serv-conta-input');
+  ci.disabled=!fi.dataset.escolhido;
+  w.querySelector('[data-serv-add-ok]').disabled=!(fi.dataset.escolhido&&ci.dataset.escolhido);
+}
 function servAbrirForm(w,nome){
   w.querySelector('.serv-add-btn').hidden=true;w.querySelector('.serv-add-form').hidden=false;
   var fi=w.querySelector('.serv-forn-input');
-  if(nome){fi.value=nome;fi.dataset.escolhido=nome;var ci=w.querySelector('.serv-conta-input');ci.focus();servListaConta(w);}
-  else{fi.focus();servListaForn(w);}
+  if(nome){fi.value=nome;fi.dataset.escolhido=nome;servFormEstado(w);var ci=w.querySelector('.serv-conta-input');ci.focus();servListaConta(w);}
+  else{servFormEstado(w);fi.focus();servListaForn(w);}
 }
 function servFecharForm(w){
   w.querySelector('.serv-add-form').hidden=true;w.querySelector('.serv-add-btn').hidden=false;
   w.querySelectorAll('input').forEach(function(i){i.value='';delete i.dataset.escolhido;});
   w.querySelectorAll('.serv-lista').forEach(function(l){l.hidden=true;});
+  servFormEstado(w);
 }
 // abre o "Adicionar fornecedor" da categoria já com o fornecedor escolhido (sugestões e Conferência)
 function servIrParaForm(t,cat,nome){
@@ -3936,11 +3987,11 @@ document.addEventListener('click',function(e){
   b=e.target.closest('[data-serv-add-ok]');if(b){servConfirmar(b.closest('.serv-add'));return;}
   b=e.target.closest('[data-serv-forn-escolher]');
   if(b){var w=b.closest('.serv-add'),fi=w.querySelector('.serv-forn-input');
-    fi.value=fi.dataset.escolhido=b.dataset.servFornEscolher;w.querySelector('.serv-forn-lista').hidden=true;
+    fi.value=fi.dataset.escolhido=b.dataset.servFornEscolher;w.querySelector('.serv-forn-lista').hidden=true;servFormEstado(w);
     var ci=w.querySelector('.serv-conta-input');ci.focus();servListaConta(w);return;}
   b=e.target.closest('[data-serv-conta-escolher]');
   if(b){var w2=b.closest('.serv-add'),ci2=w2.querySelector('.serv-conta-input'),cod=b.dataset.servContaEscolher;
-    ci2.dataset.escolhido=cod;ci2.value=cod+' — '+(nomeConta(cod)||'');w2.querySelector('.serv-conta-lista').hidden=true;
+    ci2.dataset.escolhido=cod;ci2.value=cod;ci2.title=cod+' — '+(nomeConta(cod)||'');w2.querySelector('.serv-conta-lista').hidden=true;servFormEstado(w2);
     w2.querySelector('[data-serv-add-ok]').focus();return;}
   b=e.target.closest('[data-serv-rm]');
   if(b){var t=b.dataset.servRm;delete servCatMapa(t)[nomeNorm(b.dataset.nome)];servRefresh(t);
@@ -3950,8 +4001,8 @@ document.addEventListener('click',function(e){
 });
 document.addEventListener('input',function(e){
   var c=e.target.classList;if(!c)return;
-  if(c.contains('serv-forn-input')){delete e.target.dataset.escolhido;servListaForn(e.target.closest('.serv-add'));}
-  else if(c.contains('serv-conta-input')){delete e.target.dataset.escolhido;servListaConta(e.target.closest('.serv-add'));}
+  if(c.contains('serv-forn-input')){delete e.target.dataset.escolhido;servFormEstado(e.target.closest('.serv-add'));servListaForn(e.target.closest('.serv-add'));}
+  else if(c.contains('serv-conta-input')){delete e.target.dataset.escolhido;e.target.removeAttribute('title');servFormEstado(e.target.closest('.serv-add'));servListaConta(e.target.closest('.serv-add'));}
 });
 document.addEventListener('focus',function(e){
   var c=e.target.classList;if(!c)return;
