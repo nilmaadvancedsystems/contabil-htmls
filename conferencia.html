@@ -24,6 +24,7 @@
     --success:#1A7F37; --success-soft:#DAFBE1; --success-ink:#116329;
     --danger:#BC4C00; --danger-strong:#953800; --danger-soft:#FFF1E5; --danger-ink:#953800;
     --warn:#9A6700; --warn-soft:#FFF8C5;
+    --info:#0969DA; --info-soft:#DDF4FF;
     --header-bg:#F7F7F8; --tab-active:#C62B32; --hover-bg:#8C8C9226;
     --drawer-bg:#FFFFFF; color-scheme:light; --destructive:#CF222E; --destructive-soft:#FFEBE9;
     --shadow-xs:0 1px 0 #1D1C1F0A;
@@ -46,6 +47,7 @@
       --success:#3FB950; --success-soft:#2EA04326; --success-ink:#3FB950;
       --danger:#DB6D28; --danger-strong:#F0883E; --danger-soft:#DB6D281A; --danger-ink:#F0883E;
       --warn:#D29922; --warn-soft:#BB800926;
+      --info:#58A6FF; --info-soft:#388BFD26;
       --header-bg:#08080A; --tab-active:#F0626A; --hover-bg:#8C8C9233;
       --drawer-bg:#121214; color-scheme:dark; --destructive:#F85149; --destructive-soft:#F851491A;
       --shadow-md:0 3px 6px #000; --shadow-lg:0 8px 24px #000, 0 0 0 1px #34343A;
@@ -61,6 +63,7 @@
     --success:#3FB950; --success-soft:#2EA04326; --success-ink:#3FB950;
     --danger:#DB6D28; --danger-strong:#F0883E; --danger-soft:#DB6D281A; --danger-ink:#F0883E;
     --warn:#D29922; --warn-soft:#BB800926;
+    --info:#58A6FF; --info-soft:#388BFD26;
     --header-bg:#08080A; --tab-active:#F0626A; --hover-bg:#8C8C9233;
     --drawer-bg:#121214; color-scheme:dark; --destructive:#F85149; --destructive-soft:#F851491A;
     --shadow-md:0 3px 6px #000; --shadow-lg:0 8px 24px #000, 0 0 0 1px #34343A;
@@ -783,8 +786,13 @@
   .vista-edit{display:inline-flex;align-items:center;gap:4px;}
   input[type="text"].vista-inp{width:88px;min-height:0;height:24px;padding:2px 9px;font-size:12px;font-variant-numeric:tabular-nums;}
   .vista-info{font-size:12px;color:var(--ink-muted);}
-  .grupo-tag{display:inline-block;min-width:26px;color:var(--ink-muted);font-weight:600;font-size:12px;font-variant-numeric:tabular-nums;}
-  .emp-nome .grupo-tag{margin-right:6px;}
+  .grupo-tag{display:inline-block;min-width:62px;padding:1px 8px;border-radius:2em;font-size:11px;font-weight:600;line-height:16px;text-align:center;vertical-align:1px;}
+  .grupo-tag:empty{padding:0;}
+  .grupo-tag.g-a{color:var(--success);background:var(--success-soft);}
+  .grupo-tag.g-p{color:var(--warn);background:var(--warn-soft);}
+  .grupo-tag.g-d{color:var(--danger);background:var(--danger-soft);}
+  .grupo-tag.g-r{color:var(--info);background:var(--info-soft);}
+  .emp-nome .grupo-tag{margin-right:8px;}
   .pill-vazio{display:inline-block;padding:0 7px;border-radius:2em;background:var(--hover-bg);border:1px solid var(--border);font-size:10.5px;font-weight:600;letter-spacing:.3px;color:var(--ink-muted);line-height:17px;vertical-align:1px;}
 
   /* Períodos importados: resumo em lista limpa */
@@ -1310,7 +1318,7 @@
 (function(){
 "use strict";
 
-var APP_VERSION='beta 0.1.42';
+var APP_VERSION='beta 0.1.43';
 document.querySelectorAll('#verLogin,#verApp,#verDrawer').forEach(function(el){el.textContent='Versão: '+APP_VERSION;});
 
 /* ============================== ícones ============================== */
@@ -1580,7 +1588,7 @@ function lerBalancete(rows){
     var saldoAtual=num(r[7]);if(saldoAtual==null)return;
     var letra=String(r[7]||'').trim().match(/([DC])\s*$/i);
     var dc=letra?letra[1].toUpperCase():'D';
-    m[mt[1]]={codigo:mt[1],nome:nome.slice(0,70),valor:saldoAtual,dc:dc,grupo:grupoAtual||'Outros'};
+    m[mt[1]]={codigo:mt[1],nome:nome.slice(0,70),valor:saldoAtual,dc:dc,grupo:grupoAtual||'Outros',ordem:ordem.length};
     ordem.push({codigo:mt[1],indent:indent});
   });
   ordem.forEach(function(o,i){
@@ -2248,18 +2256,26 @@ function ndpContasDisponiveis(k,q){
   var ligadas=contasDaNatureza(k);
   var l=emp().contas.filter(function(a){return !a.sintetica&&ligadas.indexOf(a.codigo)<0;});
   if(q){var qq=q.toLowerCase();l=l.filter(function(a){return a.nome.toLowerCase().indexOf(qq)>-1||a.codigo.indexOf(qq)>-1;});}
-  return l.slice(0,50);
+  return ordemPlano(l).slice(0,50);
 }
 function grupoTag(a){
-  var l={Ativo:'A',Passivo:'P',Despesa:'D',Receita:'R'}[a&&a.grupo];
-  return '<span class="grupo-tag" title="'+esc(a&&a.grupo||'')+'">'+(l?'('+l+')':'')+'</span>';
+  var cls={Ativo:'g-a',Passivo:'g-p',Despesa:'g-d',Receita:'g-r'}[a&&a.grupo];
+  return cls?'<span class="grupo-tag '+cls+'">'+esc(a.grupo)+'</span>':'<span class="grupo-tag"></span>';
+}
+// ordem do plano de contas (a do balancete importado); balancete antigo sem a ordem: grupo e código
+function ordemPlano(l){
+  var gi=function(a){var i=GRUPOS_ORDEM.indexOf(a.grupo);return i<0?99:i;};
+  return l.slice().sort(function(a,b){
+    if(a.ordem!=null&&b.ordem!=null)return a.ordem-b.ordem;
+    return gi(a)-gi(b)||String(a.codigo).localeCompare(String(b.codigo),undefined,{numeric:true});
+  });
 }
 function ndpRenderAddLista(wrap){
   var k=wrap.dataset.ndpAdd,inp=wrap.querySelector('.ndp-add-input'),box=wrap.querySelector('.ndp-add-lista');
   var l=ndpContasDisponiveis(k,inp.value.trim());
   box.hidden=false;
   box.innerHTML=!l.length?'<p class="empty" style="padding:10px 12px">Nenhuma conta encontrada.</p>':
-    '<table><tbody>'+l.map(function(a){return '<tr><td style="width:38px;padding-right:0">'+grupoTag(a)+'</td><td class="num" style="width:70px">'+esc(a.codigo)+'</td><td class="wrap">'+esc(a.nome)+'</td>'+
+    '<table><tbody>'+l.map(function(a){return '<tr><td style="width:84px;padding-right:0">'+grupoTag(a)+'</td><td class="num" style="width:70px">'+esc(a.codigo)+'</td><td class="wrap">'+esc(a.nome)+'</td>'+
       '<td class="num" style="width:96px"><button type="button" class="btn btn-primary btn-sm" data-ndp-escolher="'+esc(a.codigo)+'">Vincular</button></td></tr>';}).join('')+'</tbody></table>';
 }
 document.addEventListener('input',function(e){
@@ -2425,7 +2441,7 @@ $('#btPlano').onclick=function(){
     var m=lerBalancete(rows);
     var lista=Object.keys(m).map(function(k){return m[k];})
       .sort(function(a,b){return a.nome.localeCompare(b.nome,'pt-BR');})
-      .map(function(a){return {codigo:a.codigo,nome:a.nome,dc:a.dc,grupo:a.grupo,sintetica:a.sintetica,valor:a.valor};});
+      .map(function(a){return {codigo:a.codigo,nome:a.nome,dc:a.dc,grupo:a.grupo,sintetica:a.sintetica,valor:a.valor,ordem:a.ordem};});
     if(!lista.length){btnCarregandoFim(btn);alerta(info,'Não achei contas nesse arquivo','O balancete precisa ter o código da conta entre colchetes.');return;}
     var v=verificarBalancete(lista);
     var concluir=function(forcado){
@@ -3717,8 +3733,7 @@ document.addEventListener('click',function(e){
 });
 /* ---- passo 1: conta a conferir (usa o plano de contas já importado em Cadastro) ---- */
 function vcCarregarContas(){
-  vc.contas=emp().contas.filter(function(a){return !a.sintetica;})
-    .slice().sort(function(a,b){return a.nome.localeCompare(b.nome,'pt-BR');});
+  vc.contas=ordemPlano(emp().contas.filter(function(a){return !a.sintetica;}));
   if(vc.conta&&!vc.contas.some(function(a){return a.codigo===vc.conta.codigo;}))vc.conta=null;
   var temContas=vc.contas.length>0;
   $('#vcContaTxt').disabled=!temContas;
@@ -3733,7 +3748,7 @@ function vcRenderContaLista(){
   var l=vc.contas.filter(function(a){return a.nome.toLowerCase().indexOf(q)>-1||a.codigo.indexOf(q)>-1;}).slice(0,50);
   box.hidden=false;
   box.innerHTML=!l.length?'<p class="empty">Nenhuma conta encontrada.</p>':
-    '<table><tbody>'+l.map(function(a){return '<tr><td style="width:38px;padding-right:0">'+grupoTag(a)+'</td><td class="num" style="width:70px">'+esc(a.codigo)+'</td><td class="wrap">'+esc(a.nome)+'</td>'+
+    '<table><tbody>'+l.map(function(a){return '<tr><td style="width:84px;padding-right:0">'+grupoTag(a)+'</td><td class="num" style="width:70px">'+esc(a.codigo)+'</td><td class="wrap">'+esc(a.nome)+'</td>'+
       '<td class="num" style="width:96px"><button class="btn btn-primary btn-sm" data-vcconta="'+esc(a.codigo)+'">Escolher</button></td></tr>';}).join('')+'</tbody></table>';
 }
 $('#vcContaTxt').addEventListener('input',vcRenderContaLista);
