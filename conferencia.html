@@ -1314,7 +1314,7 @@
 (function(){
 "use strict";
 
-var APP_VERSION='beta 0.1.54';
+var APP_VERSION='beta 0.1.55';
 document.querySelectorAll('#verLogin,#verApp,#verDrawer').forEach(function(el){el.textContent='Versão: '+APP_VERSION;});
 
 /* ============================== ícones ============================== */
@@ -4020,7 +4020,10 @@ $('#vcBtConferir').onclick=function(){
       if(reconferindo&&!faltando.length&&!duplicada.length&&!aMais.length)
         modal({tom:'ok',icon:'checkCircle',title:'Tudo certo!',
           text:(vcMulti()?'As contas <b>'+esc(vcRotuloContas())+'</b> não têm mais pendências e ficaram':'A conta <b>'+esc(vcRotuloContas())+'</b> não tem mais pendências e ficou')+' <b>Ok</b> no Relatório.',
-          buttons:[{label:'Ok',value:true,variant:'btn-primary'}]});
+          buttons:[]});
+      // reconferiu e zerou as pendências: 2 segundos no aviso e volta pro Movimento com a conta Ok
+      if(reconferindo&&!faltando.length&&!duplicada.length&&!aMais.length)
+        setTimeout(function(){$('#modalOverlay').hidden=true;if(view==='conferencia')$('#btVoltarMov').click();},2000);
     }catch(e){
       toast('Não deu para comparar: '+(e&&e.message||e));
     }finally{
