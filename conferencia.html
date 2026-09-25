@@ -901,6 +901,10 @@
 
   /* seletor Resumido/Detalhado no canto superior direito */
   .steps.steps-topo{margin:0;}
+  /* Cadastro: abas + "não presta serviço" na mesma linha */
+  .cad-topo{display:flex;align-items:center;justify-content:space-between;gap:8px 16px;flex-wrap:wrap;margin-bottom:16px;}
+  .cad-topo .steps{margin-bottom:0;}
+  .cad-sem-prest{display:inline-flex;align-items:center;gap:8px;font-size:14px;color:var(--ink);cursor:pointer;user-select:none;}
   #perDetalhe .painel{margin-top:16px;}
 </style>
 </head>
@@ -1120,11 +1124,14 @@
 
       <!-- ============ CADASTRO · CONFIGURAÇÕES (entradas, saídas, tomados e prestados) ============ -->
       <section id="view-cad-cfop" hidden>
-        <div class="steps" id="cadSeg">
-          <button class="step-pill" data-cad-tipo="entradas" type="button">Entradas</button>
-          <button class="step-pill" data-cad-tipo="saidas" type="button">Saídas</button>
-          <button class="step-pill" data-cad-tipo="tomados" type="button">Tomados</button>
-          <button class="step-pill" data-cad-tipo="prestados" type="button">Prestados</button>
+        <div class="cad-topo">
+          <div class="steps" id="cadSeg">
+            <button class="step-pill" data-cad-tipo="entradas" type="button">Entradas</button>
+            <button class="step-pill" data-cad-tipo="saidas" type="button">Saídas</button>
+            <button class="step-pill" data-cad-tipo="tomados" type="button">Tomados</button>
+            <button class="step-pill" data-cad-tipo="prestados" type="button">Prestados</button>
+          </div>
+          <label class="cad-sem-prest"><input type="checkbox" id="chkSemPrestados">Essa empresa não presta serviço</label>
         </div>
         <div class="card" id="cadCardNfe">
           <h3 id="cadTitulo">Naturezas de entrada</h3>
@@ -1300,7 +1307,7 @@
 (function(){
 "use strict";
 
-var APP_VERSION='beta 0.1.33';
+var APP_VERSION='beta 0.1.34';
 document.querySelectorAll('#verLogin,#verApp,#verDrawer').forEach(function(el){el.textContent='Versão: '+APP_VERSION;});
 
 /* ============================== ícones ============================== */
@@ -1723,6 +1730,8 @@ function contadorCad(tipo){
 var cadTipo='entradas';
 function cadAba(t){
   if(!$('#cadSeg'))return;
+  if(t==='prestados'&&semPrest())t='entradas';
+  $('#chkSemPrestados').checked=semPrest();
   cadTipo=t;var serv=ehServ(t);
   $$('#cadSeg .step-pill').forEach(function(b){b.setAttribute('aria-current',b.dataset.cadTipo===t?'true':'false');});
   $('#cadCardNfe').hidden=serv;$('#cadCardServ').hidden=!serv;
@@ -1734,6 +1743,14 @@ function cadAba(t){
 document.addEventListener('click',function(e){
   var b=e.target.closest('#cadSeg [data-cad-tipo]');if(b)cadAba(b.dataset.cadTipo);
 });
+$('#chkSemPrestados').onchange=function(){
+  if(!atual)return;
+  var marcado=this.checked;
+  if(marcado)emp().semPrestados=true;else delete emp().semPrestados;
+  if(marcado&&cadTipo==='prestados')cadAba('entradas');
+  save();renderNav();
+  toast(marcado?'Serviços prestados bloqueados nessa empresa.':'Serviços prestados liberados.');
+};
 function renderNav(){
   var m=VIEWS[view]||{},ok=importacoesOk();
   // lateral fixo: as seções, sempre as mesmas, separadas por linha entre os grupos
@@ -1756,6 +1773,7 @@ function renderNav(){
     return '<button type="button" class="menu-item'+(on?' active':'')+'" data-ir="'+it.v+'"'+(on?' aria-current="page"':'')+'>'+
       svg(it.icon)+'<span>'+esc(it.label)+'</span></button>';
   }).join('');
+  aplicarBloqueios();
 }
 /* ---- bloqueio por arquivo não importado ----
    Tudo que mostra dados de um arquivo que ainda não foi importado fica travado;
@@ -1766,6 +1784,7 @@ var AVISO_IMPORTAR={
   notas:{titulo:'Nenhuma nota importada',texto:'O Movimento precisa das notas de <b>entradas</b> ou <b>saídas</b>. Importe pelo menos um dos relatórios.',botao:'Importar notas',v:'imp-entradas'},
   prestados:{titulo:'Serviços prestados ainda não importados',texto:'Importe o relatório de <b>serviços prestados</b> pra ver esses dados.',botao:'Importar serviços prestados',v:'imp-prestados'},
   tomados:{titulo:'Serviços tomados ainda não importados',texto:'Importe o relatório de <b>serviços tomados</b> pra ver esses dados.',botao:'Importar serviços tomados',v:'imp-tomados'},
+  semPrestados:{titulo:'Empresa sem serviços prestados',texto:'Essa empresa está marcada como <b>não presta serviço</b>. Pra liberar, desmarque em Cadastro › Configurações.',botao:'Ir para o Cadastro',v:'cad-cfop'},
   todas:{titulo:'Cadastro ainda indisponível',texto:'O Cadastro fica disponível depois de importar o <b>balancete</b> e as notas: <b>entradas e saídas</b>, ou os <b>serviços</b>.',botao:'Ir para a importação',v:null}
 };
 function avisoImportar(req){
@@ -1782,16 +1801,20 @@ document.addEventListener('click',function(e){
 },true);
 function aplicarBloqueios(){
   if(!atual)return;
-  var tem={entradas:emp().entradas.length>0,saidas:emp().saidas.length>0,prestados:(emp().servPrestados||[]).length>0,tomados:(emp().servTomados||[]).length>0};
+  var semP=semPrest();
+  var tem={entradas:emp().entradas.length>0,saidas:emp().saidas.length>0,prestados:!semP&&(emp().servPrestados||[]).length>0,tomados:(emp().servTomados||[]).length>0};
   [['#confSeg [data-conf-aba="entradas"]','entradas'],['#confSeg [data-conf-aba="saidas"]','saidas'],
    ['#natSeg [data-nat-tipo="Entrada"]','entradas'],['#natSeg [data-nat-tipo="Saída"]','saidas'],
    ['#consSeg [data-cons-tipo="entradas"]','entradas'],['#consSeg [data-cons-tipo="saidas"]','saidas'],
    ['#confSeg [data-conf-aba="prestados"]','prestados'],['#confSeg [data-conf-aba="tomados"]','tomados'],
-   ['#consSeg [data-cons-tipo="prestados"]','prestados'],['#consSeg [data-cons-tipo="tomados"]','tomados']].forEach(function(p){
+   ['#consSeg [data-cons-tipo="prestados"]','prestados'],['#consSeg [data-cons-tipo="tomados"]','tomados'],
+   // estes só travam com "não presta serviço" (é onde se importa/cadastra)
+   ['#menu [data-ir="imp-prestados"]','prestados',1],['#cadSeg [data-cad-tipo="prestados"]','prestados',1]].forEach(function(p){
     var b=$(p[0]);if(!b)return;
-    var trava=!tem[p[1]];
+    var porFlag=semP&&p[1]==='prestados',trava=porFlag||(!p[2]&&!tem[p[1]]);
     b.classList.toggle('is-locked',trava);
-    if(trava){b.dataset.req=p[1];b.setAttribute('aria-disabled','true');b.title='Importe '+({entradas:'as entradas',saidas:'as saídas',prestados:'os serviços prestados',tomados:'os serviços tomados'})[p[1]]+' primeiro';}
+    if(porFlag){b.dataset.req='semPrestados';b.setAttribute('aria-disabled','true');b.title='Empresa marcada como não presta serviço';}
+    else if(trava){b.dataset.req=p[1];b.setAttribute('aria-disabled','true');b.title='Importe '+({entradas:'as entradas',saidas:'as saídas',prestados:'os serviços prestados',tomados:'os serviços tomados'})[p[1]]+' primeiro';}
     else{delete b.dataset.req;b.removeAttribute('aria-disabled');b.removeAttribute('title');}
   });
   // se o recorte aberto ficou travado, volta pra um que tem dados
@@ -1844,6 +1867,15 @@ $('#impIcoPlano').innerHTML=svg('landmark');
 $('#impIcoEnt').innerHTML=svg('arrowDown');
 $('#impIcoSai').innerHTML=svg('arrowUp');
 $$('#impIcoUp1,#impIcoUp2,#impIcoUp3').forEach(function(el){el.innerHTML=svg('upload');});
+// botão Importar apagado enquanto o arquivo não foi escolhido
+function impBotoesEstado(){
+  if(!IMP_CONFIG)return;
+  Object.keys(IMP_CONFIG).forEach(function(s){
+    var c=IMP_CONFIG[s],b=$(c.btn),i=$(c.input);
+    if(!b||!i||b.classList.contains('btn-import-done')||b.querySelector('.btn-spinner'))return;
+    b.disabled=!(i.files&&i.files.length);
+  });
+}
 function wireFilePicker(inputId,nameId,clearId){
   var inp=$(inputId),nm=$(nameId),clr=clearId?$(clearId):null;
   inp.addEventListener('change',function(){
@@ -1851,18 +1883,21 @@ function wireFilePicker(inputId,nameId,clearId){
     nm.textContent=f?f.name:'Escolher arquivo';
     nm.closest('.file-picker').classList.toggle('has-file',!!f);
     if(clr)clr.hidden=!f;
+    impBotoesEstado();
   });
   if(clr)clr.onclick=function(e){
     e.preventDefault();e.stopPropagation();
     inp.value='';nm.textContent='Escolher arquivo';
     nm.closest('.file-picker').classList.remove('has-file');
     clr.hidden=true;
+    impBotoesEstado();
   };
 }
 function resetFilePicker(inputId,nameId,clearId){
   $(inputId).value='';
   var nm=$(nameId);nm.textContent='Escolher arquivo';nm.closest('.file-picker').classList.remove('has-file');
   if(clearId)$(clearId).hidden=true;
+  impBotoesEstado();
 }
 wireFilePicker('#fPlano','#fPlanoNome','#fPlanoClear');
 wireFilePicker('#fEnt','#fEntNome','#fEntClear');
@@ -1876,6 +1911,7 @@ function go(v){
   fecharMsgsImport(); // trocou de tela: fecha as mensagens de importação
   reimp.Plano=reimp.Ent=reimp.Sai=reimp.Prest=reimp.Tom=false;
   if(!VIEWS[v])v='mov-conferencia';
+  if(v==='imp-prestados'&&semPrest())v='imp-tomados';
   var m=VIEWS[v];
   if(m.sec==='cadastro'&&!importacoesOk()){toast(MSG_CADASTRO_BLOQ);v=primeiraImportacaoPendente();m=VIEWS[v];}
   if(view==='conferencia'&&v!=='conferencia')vcDescartarRelatorio();
@@ -2326,6 +2362,7 @@ function impAtualizarBox(sufixo,importado){
   btn.innerHTML=importado?
     '<span class="btn-import-idle">Importado!</span><span class="btn-import-hover">'+svg('x')+'Remover</span>':
     'Importar';
+  impBotoesEstado();
 }
 function btnCarregando(btn,texto){
   btn.disabled=true;
@@ -2335,6 +2372,7 @@ function btnCarregando(btn,texto){
 function btnCarregandoFim(btn){
   btn.disabled=false;
   btn.textContent=btn.dataset.textoOriginal||btn.textContent;
+  impBotoesEstado();
 }
 function apagarPlano(){
   if(!atual)return;
@@ -3907,7 +3945,8 @@ var SV={
   tomados:{campo:'servTomados',rotulo:'Serviços tomados',rotValor:'Valor do documento',lancPadrao:'527',part:'fornecedor',parts:'fornecedores',suf:'Tom',v:'imp-tomados'}
 };
 function ehServ(t){return t==='prestados'||t==='tomados';}
-function listaTipo(t){return ehServ(t)?(emp()[SV[t].campo]||[]):emp()[t];}
+function semPrest(){return !!(atual&&emp()&&emp().semPrestados);}
+function listaTipo(t){if(t==='prestados'&&semPrest())return [];return ehServ(t)?(emp()[SV[t].campo]||[]):emp()[t];}
 function chaveServ(n){return [n.numero,n.data,n.nome,n.valor.toFixed(2)].join('|');}
 function capital(s){return s.charAt(0).toUpperCase()+s.slice(1);}
 function lerServicos(rows,tipo){
@@ -4383,7 +4422,7 @@ db.collection('empresas').onSnapshot(function(snap){
   var novo={};
   snap.forEach(function(doc){
     var d=doc.data(),nome=d.nome||doc.id;
-    novo[nome]=norm({contas:d.contas||[],dp:d.dp||[],entradas:d.entradas||[],saidas:d.saidas||[],divResolvidos:d.divResolvidos||[],confMarcados:d.confMarcados||[],confHistorico:d.confHistorico||[],naturezaConta:d.naturezaConta||{},confAutoMarcados:d.confAutoMarcados||[],confAutoRecusados:d.confAutoRecusados||[],importHistorico:d.importHistorico||[],autoLimparBalancete:d.autoLimparBalancete,avisoBalPendente:d.avisoBalPendente,balanceteAssinatura:d.balanceteAssinatura,balanceteAssinaturaTs:d.balanceteAssinaturaTs,servPrestados:d.servPrestados||[],servTomados:d.servTomados||[],servCat:d.servCat||{},vendaVista:d.vendaVista||{ativo:false,lancs:{}},verifConta:d.verifConta||{}});
+    novo[nome]=norm({contas:d.contas||[],dp:d.dp||[],entradas:d.entradas||[],saidas:d.saidas||[],divResolvidos:d.divResolvidos||[],confMarcados:d.confMarcados||[],confHistorico:d.confHistorico||[],naturezaConta:d.naturezaConta||{},confAutoMarcados:d.confAutoMarcados||[],confAutoRecusados:d.confAutoRecusados||[],importHistorico:d.importHistorico||[],autoLimparBalancete:d.autoLimparBalancete,avisoBalPendente:d.avisoBalPendente,balanceteAssinatura:d.balanceteAssinatura,balanceteAssinaturaTs:d.balanceteAssinaturaTs,servPrestados:d.servPrestados||[],servTomados:d.servTomados||[],servCat:d.servCat||{},vendaVista:d.vendaVista||{ativo:false,lancs:{}},semPrestados:!!d.semPrestados,verifConta:d.verifConta||{}});
   });
   dados=novo;
   if(primeiraCarga){
