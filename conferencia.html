@@ -1308,7 +1308,7 @@
 (function(){
 "use strict";
 
-var APP_VERSION='beta 0.1.37';
+var APP_VERSION='beta 0.1.38';
 document.querySelectorAll('#verLogin,#verApp,#verDrawer').forEach(function(el){el.textContent='Versão: '+APP_VERSION;});
 
 /* ============================== ícones ============================== */
@@ -1752,7 +1752,9 @@ function definirPrestaServico(sim){
 }
 function perguntarPrestaServico(){
   if(!atual||emp().prestaServico!==undefined)return;
-  modal({blur:true,icon:'briefcase',title:'Essa empresa presta serviço?',text:'',
+  var cod=CLIENTES.filter(function(c){return c[1]===atual;})[0];
+  modal({blur:true,icon:'briefcase',title:'Seja bem-vindo(a) à Conferência Contábil!',
+    text:'Para melhorarmos a sua experiência: a empresa <b>'+esc((cod?cod[0]+' — ':'')+atual)+'</b> presta serviços?',
     buttons:[{label:'Não',value:false,variant:'btn-outline'},{label:'Sim',value:true,variant:'btn-primary'}]
   }).then(definirPrestaServico);
 }
