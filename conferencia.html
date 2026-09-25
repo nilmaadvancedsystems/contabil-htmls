@@ -782,6 +782,7 @@
   .vista-edit{display:inline-flex;align-items:center;gap:4px;}
   input[type="text"].vista-inp{width:88px;min-height:0;height:24px;padding:2px 9px;font-size:12px;font-variant-numeric:tabular-nums;}
   .vista-info{font-size:12px;color:var(--ink-muted);}
+  .pill-vazio{display:inline-block;padding:0 7px;border-radius:2em;background:var(--hover-bg);border:1px solid var(--border);font-size:10.5px;font-weight:600;letter-spacing:.3px;color:var(--ink-muted);line-height:17px;vertical-align:1px;}
 
   /* Períodos importados: resumo em lista limpa */
   .per-resumo{border:1px solid var(--border);border-radius:6px;background:var(--surface);margin-bottom:16px;overflow:hidden;}
@@ -1310,7 +1311,7 @@
 (function(){
 "use strict";
 
-var APP_VERSION='beta 0.1.39';
+var APP_VERSION='beta 0.1.40';
 document.querySelectorAll('#verLogin,#verApp,#verDrawer').forEach(function(el){el.textContent='Versão: '+APP_VERSION;});
 
 /* ============================== ícones ============================== */
@@ -3112,7 +3113,6 @@ function renderDivergencias(tipo){
         '<option value="valor"'+(ordem==='valor'?' selected':'')+'>Valor (maior primeiro)</option>'+
         '<option value="data"'+(ordem==='data'?' selected':'')+'>Data</option></select></label>'+
     '</div>'+
-    '<p class="sub">Agrupado por natureza — CFOPs com a mesma natureza aparecem juntos. Marque o grupo inteiro pra corrigir tudo de uma vez, ou item por item — o que marcar passa pra "Corrigidos".</p>'+
     (gruposPend.length?gruposPend.map(function(g){return renderGrupo(g,false);}).join(''):'<p class="empty">Nenhuma pendente — tudo corrigido.</p>')+
     (gruposCorr.length?
       '<p class="hint" style="margin-top:16px;font-weight:600;color:var(--ink)">Corrigidos ('+corrigidos.length+')</p>'+
@@ -3408,7 +3408,7 @@ function renderCcBalancete(grupos,chaves,tipoF){
       comp.contas.map(function(c){var n=nomeConta(c);return c+(n?' — '+n:'');}).join(' + ');
   });
   comps.sort(function(a,b){return a.tituloContas.localeCompare(b.tituloContas,undefined,{numeric:true});});
-  $('#ccBalancete').innerHTML='<div class="table-wrap" style="max-height:none;"><table class="table-compact"><thead><tr><th>Conta</th><th>Origem</th><th class="num">Notas</th><th class="num">Soma das notas</th><th class="num">Saldo do balancete</th><th class="num th-sit">Situação</th></tr></thead><tbody>'+
+  $('#ccBalancete').innerHTML='<div class="table-wrap" style="max-height:none;"><table class="table-compact"><thead><tr><th>Conta</th><th>Descrição</th><th class="num">Notas</th><th class="num">Soma das notas</th><th class="num">Saldo do balancete</th><th class="num th-sit">Situação</th></tr></thead><tbody>'+
     comps.map(function(comp){
       var cfops=comp.naturezas.reduce(function(l,k){return l.concat(grupos[k].cfops);},[])
         .filter(function(c,i,l){return l.indexOf(c)===i;})
@@ -4447,10 +4447,10 @@ function renderConfServ(tipo){
   });
   var ks=Object.keys(grupos).sort();
   $('#confServBal').innerHTML=!ks.length?'<p class="empty">Nenhuma nota no período.</p>':
-    '<div class="table-wrap" style="max-height:none;"><table class="table-compact"><thead><tr><th>Conta</th><th>Origem</th><th class="num">Notas</th><th class="num">Soma das notas</th><th class="num">Saldo do balancete</th><th class="num th-sit">Situação</th></tr></thead><tbody>'+
+    '<div class="table-wrap" style="max-height:none;"><table class="table-compact"><thead><tr><th>Conta</th><th>Descrição</th><th class="num">Notas</th><th class="num">Soma das notas</th><th class="num">Saldo do balancete</th><th class="num th-sit">Situação</th></tr></thead><tbody>'+
     ks.map(function(k){
       var g=grupos[k],nomes=Object.keys(g.parts).map(function(x){return g.parts[x];});
-      var cats=Object.keys(g.cats).map(function(id){return g.cats[id].nome+' · lanç. '+g.cats[id].lanc;}).join(', ');
+      var cats=Object.keys(g.cats).map(function(id){return id==='geral'?'Serviços Gerais':g.cats[id].nome;}).join(', ');
       var titulo=g.contas.length?g.contas.map(function(c){var nm=nomeConta(c);return c+(nm?' — '+nm:'');}).join(' + '):'Sem conta vinculada';
       var saldo=null,falta=g.contas.some(function(c){return saldoAtualizado(c)==null;});
       if(g.contas.length&&!falta)saldo=g.contas.reduce(function(s,c){return s+saldoAtualizado(c);},0);
@@ -4494,7 +4494,6 @@ function renderConfServ(tipo){
           '<input type="checkbox" data-resolve-serv-grupo="'+tipo+'|'+esc(gr.key)+'" data-hist-texto="'+esc(cfg.rotulo+' · '+gr.nome+' ('+itens.length+' nota'+(itens.length>1?'s':'')+')')+'"'+(marcado?' checked':'')+' aria-label="Marcar todo o grupo como corrigido">'+
           '<b title="'+esc(gr.nome)+'" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0;">'+esc(gr.nome)+'</b>'+
           '<span class="badge badge-neutral" style="flex:none">'+itens.length+'</span>'+
-          '<span class="hint" style="margin-left:auto;white-space:nowrap">'+esc(c.nome)+' · esperado <b style="color:var(--ink)">'+esc(c.lanc)+'</b> · '+brl(soma(itens))+'</span>'+
         '</span>'+
       '</summary>'+acoes+
       '<ul style="list-style:none;margin:0;padding:0 13px 10px 39px;">'+
@@ -4503,7 +4502,7 @@ function renderConfServ(tipo){
         return '<li style="display:flex;align-items:center;gap:10px;padding:7px 0;border-top:1px solid var(--border);font-size:13.5px;flex-wrap:wrap;">'+
           '<input type="checkbox" data-resolve-serv="'+esc(k)+'" data-hist-texto="'+esc(cfg.rotulo+' · nota '+n.numero+' · '+n.nome+' · lanç. '+(l||'—')+' (esperado '+c.lanc+' — '+c.nome+')')+'"'+(marcado?' checked':'')+' aria-label="Marcar como corrigido">'+
           '<span style="flex:1 1 200px;min-width:0;">'+esc(n.data)+' · nota '+esc(n.numero)+'</span>'+
-          '<span class="hint" style="white-space:nowrap">lanç. <b style="color:var(--ink)">'+esc(l||'—')+'</b> — esperado: <b style="color:var(--ink)">'+esc(c.lanc)+'</b></span>'+
+          '<span class="hint" style="white-space:nowrap">Atual '+(l?'<b style="color:var(--ink)">'+esc(n.lanc)+'</b>':'<span class="pill-vazio">VAZIO</span>')+' — Correto: <b style="color:var(--ink)">'+esc(l?lancComZeros(c.lanc,n.lanc):c.lanc)+'</b></span>'+
           '<span class="num" style="width:90px;text-align:right">'+brl(n.valor)+'</span>'+
         '</li>';
       }).join('')+
