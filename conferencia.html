@@ -1313,7 +1313,7 @@
 (function(){
 "use strict";
 
-var APP_VERSION='beta 0.1.52';
+var APP_VERSION='beta 0.1.53';
 document.querySelectorAll('#verLogin,#verApp,#verDrawer').forEach(function(el){el.textContent='Versão: '+APP_VERSION;});
 
 /* ============================== ícones ============================== */
@@ -2296,6 +2296,11 @@ function somaNfeDaConta(codigos){
     if(noPeriodoCc(n)&&contasDaNatureza(chaveNaturezaNota(n,p[1])).some(function(c){return codigos.indexOf(c)>-1;}))s+=n.valor;
   });});
   return s;
+}
+var CONFERIVEIS=/\bagua\b|internet|energia eletrica|sistema/;
+function podeConferir(codigos,extras){
+  var t=(codigos||[]).map(function(c){return nomeConta(c)||'';}).concat(extras||[]).map(nomeNorm).join(' | ');
+  return CONFERIVEIS.test(t);
 }
 function nomeConta(codigo){
   var c=emp().contas.filter(function(a){return a.codigo===codigo;})[0];
@@ -3505,7 +3510,7 @@ function renderCcBalancete(grupos,chaves,tipoF){
         var vs=verifEstado(comp.contas[0]);
         situacao=Math.abs(dif)<0.01?'<span class="badge badge-ok">Ok</span><span class="sit-vazio"></span>':
           vs==='ok'?'<span class="badge badge-ok" title="Diferença de '+brl(dif)+' no balancete lido — o relatório da conta foi conferido sem pendências">Ok</span><span class="sit-vazio"></span>':
-          (conferidoManual||vs==='conferido'?'<span class="badge badge-conferido" title="Diferença de '+brl(dif)+' — conferido manualmente">Conferido</span>':'<span class="badge badge-bad">'+brl(dif)+'</span>')+'<button type="button" class="icon-btn icon-btn-sm" data-ir-verificar="'+esc(comp.contas.join(','))+'" title="Revisar esta conta" aria-label="Revisar esta conta">'+svg('fileSearch')+'</button>';
+          ((conferidoManual||vs==='conferido')&&podeConferir(comp.contas,comp.naturezas.map(function(k){return grupos[k].desc||k;}))?'<span class="badge badge-conferido" title="Diferença de '+brl(dif)+' — conferido manualmente">Conferido</span>':'<span class="badge badge-bad">'+brl(dif)+'</span>')+'<button type="button" class="icon-btn icon-btn-sm" data-ir-verificar="'+esc(comp.contas.join(','))+'" title="Revisar esta conta" aria-label="Revisar esta conta">'+svg('fileSearch')+'</button>';
       }
       var qtdNotas=comp.naturezas.reduce(function(s,k){return s+grupos[k].itens.length;},0);
       var ap=avisoPassivo(comp.contas);
@@ -4078,13 +4083,13 @@ function vcRenderResultado(){
     return;
   }
   var html='';
-  var conferido=verifEstado(vc.conta.codigo)==='conferido';
+  var conferido=verifEstado(vc.conta.codigo)==='conferido',podeConf=podeConferir(vcCodigos(),[r.fonte||'']);
   var secao=function(titulo,soma,corpo){
     return '<div class="vc-secao"><h4>'+titulo+' — <span style="color:var(--ink-muted);font-weight:600">'+brl(soma)+'</span></h4>'+corpo+'</div>';
   };
   html+='<div class="vc-pend">'+
     '<div class="vc-pend-head"><h3>Pendências</h3>'+
-      (conferido?'<button type="button" class="btn btn-sm vc-conferido-on" data-vc-conferido title="Marcada como conferida com pendências — clique pra desfazer">'+svg('check')+'Conferido</button>':
+      (!podeConf?'':conferido?'<button type="button" class="btn btn-sm vc-conferido-on" data-vc-conferido title="Marcada como conferida com pendências — clique pra desfazer">'+svg('check')+'Conferido</button>':
         '<button type="button" class="btn btn-sm btn-outline" data-vc-conferido title="Seguir com essas pendências e marcar a conta como conferida">Marcar como conferido</button>')+
     '</div>'+
     (r.faltando.length?secao('Faltando na conta ('+r.faltando.length+')',somaFaltando,
@@ -4558,7 +4563,7 @@ function renderConfServ(tipo){
       else if(saldo==null)sit='<span class="badge badge-neutral">Conta fora do balancete lido</span>';
       else{var dif=g.total-saldo,vs=verifEstado(g.contas[0]);sit=Math.abs(dif)<0.01?'<span class="badge badge-ok">Ok</span><span class="sit-vazio"></span>':
         vs==='ok'?'<span class="badge badge-ok" title="Diferença de '+brl(dif)+' no balancete lido — o relatório da conta foi conferido sem pendências">Ok</span><span class="sit-vazio"></span>':
-        (vs==='conferido'?'<span class="badge badge-conferido" title="Diferença de '+brl(dif)+' — conferido manualmente">Conferido</span>':'<span class="badge badge-bad">'+brl(dif)+'</span>')+'<button type="button" class="icon-btn icon-btn-sm" data-ir-verificar="'+esc(g.contas.join(','))+'" title="Revisar esta conta" aria-label="Revisar esta conta">'+svg('fileSearch')+'</button>';}
+        (vs==='conferido'&&podeConferir(g.contas,Object.keys(g.cats).map(function(id){return g.cats[id].nome;}))?'<span class="badge badge-conferido" title="Diferença de '+brl(dif)+' — conferido manualmente">Conferido</span>':'<span class="badge badge-bad">'+brl(dif)+'</span>')+'<button type="button" class="icon-btn icon-btn-sm" data-ir-verificar="'+esc(g.contas.join(','))+'" title="Revisar esta conta" aria-label="Revisar esta conta">'+svg('fileSearch')+'</button>';}
       if(sit.indexOf('sit-vazio')<0&&sit.indexOf('data-ir-verificar')<0)sit+='<span class="sit-vazio"></span>';
       var ap=avisoPassivo(g.contas);
       return '<tr'+ap.tr+'><td style="white-space:nowrap">'+ap.ico+(g.contas.length?'<b>'+esc(titulo)+'</b>':'<span style="color:var(--ink-muted)">'+esc(titulo)+'</span>')+'</td>'+
