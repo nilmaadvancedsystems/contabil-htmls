@@ -1321,7 +1321,7 @@
 (function(){
 "use strict";
 
-var APP_VERSION='beta 0.1.58';
+var APP_VERSION='beta 0.1.59';
 document.querySelectorAll('#verLogin,#verApp,#verDrawer').forEach(function(el){el.textContent='Versão: '+APP_VERSION;});
 
 /* ============================== ícones ============================== */
@@ -3778,6 +3778,7 @@ function ehLinhaIcms(l){return /\bicms\b/.test(nomeNorm(l.txt));
 function vcLinhasDuplicadas(r){
   var out=[];
   r.duplicada.forEach(function(d){
+    if(d.linhas){d.linhas.forEach(function(l){out.push(vcLinhaRazao(l));});return;}
     var ls=vc.razaoLinhas.filter(function(l){return !ehLinhaIcms(l)&&!l.dica&&vcNumerosDoHistorico(l.txt,!!r.serv).some(function(t){return (t.replace(/^0+/,'')||t)===d.numero;});})
       .slice().sort(function(a,b){return a.valor-b.valor;});
     ls.slice(1).forEach(function(l){out.push(vcLinhaRazao(l));});
@@ -4018,14 +4019,22 @@ $('#vcBtConferir').onclick=function(){
         var k=n.numero.replace(/^0+/,'')||n.numero;
         return !vistos[k];
       });
-      var duplicada=Object.keys(vistos).filter(function(k){return vistos[k]>1&&numerosAlvo[k];})
+      var itensPorNumero={},linhasPorNumero={};
+      alvo.forEach(function(n){if(!n.numero)return;var k=n.numero.replace(/^0+/,'')||n.numero;(itensPorNumero[k]=itensPorNumero[k]||[]).push(n.valor);});
+      linhasConf.forEach(function(l,i){numerosPorLinha[i].forEach(function(t){var k=t.replace(/^0+/,'')||t;var a=linhasPorNumero[k]=linhasPorNumero[k]||[];if(a.indexOf(l)<0)a.push(l);});});
+      var duplicada=Object.keys(linhasPorNumero).filter(function(k){return numerosAlvo[k]&&linhasPorNumero[k].length>1;})
         .map(function(k){
-          var valores=valoresPorNumero[k]||[];
-          var total=valores.reduce(function(s,v){return s+v;},0);
-          // valor "a mais" por causa da repetição: o total lançado sob esse número, tirando uma ocorrência (a "legítima")
-          var extra=total-Math.min.apply(null,valores);
-          return {numero:k,vezes:vistos[k],valor:extra};
-        });
+          var ls=linhasPorNumero[k],its=itensPorNumero[k]||[];
+          var esperado=its.reduce(function(s,v){return s+v;},0),lancado=ls.reduce(function(s,l){return s+l.valor;},0);
+          var extra=lancado-esperado;
+          if(extra<0.005)return null; // bate com a nota (inteira ou item a item): não é duplicada
+          // linhas que sobram: tira a que vale a nota inteira ou, se não houver, as que batem item a item
+          var resto=ls.slice().sort(function(a,b){return a.valor-b.valor;});
+          var inteira=resto.findIndex(function(l){return Math.abs(l.valor-esperado)<0.005;});
+          if(inteira>=0)resto.splice(inteira,1);
+          else its.forEach(function(v){var i=resto.findIndex(function(l){return Math.abs(l.valor-v)<0.005;});if(i>=0)resto.splice(i,1);});
+          return {numero:k,vezes:ls.length,valor:extra,linhas:resto};
+        }).filter(Boolean);
       var aMais=linhasConf.filter(function(l,i){
         return !numerosPorLinha[i].some(function(t){return numerosAlvo[t.replace(/^0+/,'')||t];});
       }).concat(deOutroCfop);
