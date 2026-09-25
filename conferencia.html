@@ -1313,7 +1313,7 @@
 (function(){
 "use strict";
 
-var APP_VERSION='beta 0.1.51';
+var APP_VERSION='beta 0.1.52';
 document.querySelectorAll('#verLogin,#verApp,#verDrawer').forEach(function(el){el.textContent='Versão: '+APP_VERSION;});
 
 /* ============================== ícones ============================== */
@@ -3172,9 +3172,9 @@ function renderDivergencias(tipo){
         return '<li style="display:flex;align-items:center;gap:10px;padding:7px 0;border-top:1px solid var(--border);font-size:13.5px;flex-wrap:wrap;">'+
           '<input type="checkbox" data-resolve="'+tipo+'|'+esc(d.chave)+'" data-hist-texto="'+esc('Nota '+n.numero+' · '+n.nome+' · CFOP '+n.cfop+' · lanç. '+n.lanc)+'"'+(marcado?' checked':'')+' aria-label="Marcar como corrigido">'+
           '<span style="flex:1 1 260px;min-width:0;">'+esc(n.data)+' · nota '+esc(n.numero)+' · '+esc(n.nome)+' · CFOP '+esc(n.cfop)+'</span>'+
-          // lançamento cadastrado pelo usuário (à vista / a prazo): "Correto"; tirado da maioria das notas: "Maioria"
+          // lançamento cadastrado pelo usuário (à vista / a prazo): "Lanç. Configurado"; tirado da maioria das notas: "Lanç. Padrão"
           '<span class="hint" style="white-space:nowrap">Atual <b style="color:var(--ink)">'+esc(n.lanc)+'</b> — '+
-            (d.cadastrado?'Correto':'Maioria')+
+            (d.cadastrado?'Lanç. Configurado':'Lanç. Padrão')+
             ': <b style="color:var(--ink)">'+esc(lancComZeros(d.padrao,n.lanc))+'</b></span>'+
           '<span class="num" style="width:90px;text-align:right">'+brl(n.valor)+'</span>'+
         '</li>';
@@ -4601,7 +4601,7 @@ function renderConfServ(tipo){
         return '<li style="display:flex;align-items:center;gap:10px;padding:7px 0;border-top:1px solid var(--border);font-size:13.5px;flex-wrap:wrap;">'+
           '<input type="checkbox" data-resolve-serv="'+esc(k)+'" data-hist-texto="'+esc(cfg.rotulo+' · nota '+n.numero+' · '+n.nome+' · lanç. '+(l||'—')+' (esperado '+c.lanc+' — '+c.nome+')')+'"'+(marcado?' checked':'')+' aria-label="Marcar como corrigido">'+
           '<span style="flex:1 1 200px;min-width:0;">'+esc(n.data)+' · nota '+esc(n.numero)+'</span>'+
-          '<span class="hint" style="white-space:nowrap">Atual '+(l?'<b style="color:var(--ink)">'+esc(n.lanc)+'</b>':'<span class="pill-vazio">VAZIO</span>')+' — Correto: <b style="color:var(--ink)">'+esc(l?lancComZeros(c.lanc,n.lanc):c.lanc)+'</b></span>'+
+          '<span class="hint" style="white-space:nowrap">Atual '+(l?'<b style="color:var(--ink)">'+esc(n.lanc)+'</b>':'<span class="pill-vazio">VAZIO</span>')+' — Lanç. Configurado: <b style="color:var(--ink)">'+esc(l?lancComZeros(c.lanc,n.lanc):c.lanc)+'</b></span>'+
           '<span class="num" style="width:90px;text-align:right">'+brl(n.valor)+'</span>'+
         '</li>';
       }).join('')+
