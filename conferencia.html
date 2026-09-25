@@ -333,7 +333,8 @@
   /* dados importados: sem caixa nem título, só os números e a tabela */
   .imp-dados{margin-bottom:16px;}
   .cc-bal{margin-bottom:16px;}
-  .saldo-div{color:var(--ink-muted);margin-left:2px;cursor:help;}
+  tr.linha-em-serv > td{color:var(--ink-muted);}
+  tr.linha-em-serv > td b{color:var(--ink-muted);font-weight:600;}
   tr.linha-passivo > td{background:var(--destructive-soft);}
   tr.linha-passivo > td:first-child{box-shadow:inset 3px 0 0 var(--destructive);}
   tr.linha-passivo > td:first-child b{color:var(--destructive);}
@@ -1312,7 +1313,7 @@
 (function(){
 "use strict";
 
-var APP_VERSION='beta 0.1.50';
+var APP_VERSION='beta 0.1.51';
 document.querySelectorAll('#verLogin,#verApp,#verDrawer').forEach(function(el){el.textContent='Versão: '+APP_VERSION;});
 
 /* ============================== ícones ============================== */
@@ -1948,7 +1949,7 @@ function go(v){
 }
 function renderTopActions(){
   var html='';
-  if(view==='mov-consulta')html='<button class="btn" type="button" data-csv="'+consultaTipo+'">'+svg('arrowDown')+'Baixar CSV</button>';
+  if(view==='mov-consulta')html='<button class="btn btn-primary" type="button" data-csv="'+consultaTipo+'">Baixar CSV</button>';
   if(view==='imp-balancete')html='<span class="toggle-row" title="Ligado: o balancete desta empresa é apagado sempre que alguém sai dela, pra próxima conferência começar com um balancete atualizado.">Apagar ao sair'+switchAutoLimpar()+'</span>';
   var sImp={'imp-balancete':'Plano','imp-entradas':'Ent','imp-saidas':'Sai','imp-prestados':'Prest','imp-tomados':'Tom'}[view];
   if(sImp&&atual&&impJaImportado()[sImp])
@@ -2271,6 +2272,14 @@ function notasCfopDeServico(tipo){
 function noPeriodoCc(n){
   var de=ccState.dataDe&&ccState.dataDe.length===10?dataOrdem(ccState.dataDe):0,ate=ccState.dataAte&&ccState.dataAte.length===10?dataOrdem(ccState.dataAte):0,t=dataOrdem(n.data);
   return (!de||t>=de)&&(!ate||t<=ate)&&(!ccState.meses.length||ccState.meses.indexOf(n.comp)>-1);
+}
+// essas contas têm nota de serviço no período? devolve o tipo (tomados/prestados) ou null
+function servicoDaConta(codigos){
+  var achou=null;
+  ['tomados','prestados'].forEach(function(t){if(achou)return;
+    if(listaTipo(t).some(function(n){return noPeriodoCc(n)&&contasDoPart(t,n.nome).some(function(c){return codigos.indexOf(c)>-1;});}))achou=t;
+  });
+  return achou;
 }
 // notas de serviço (tomados/prestados) lançadas nessas contas
 function somaServDaConta(codigos){
@@ -3471,8 +3480,7 @@ function renderCcBalancete(grupos,chaves,tipoF){
     comp.notasTotal=comp.naturezas.reduce(function(s,k){return s+grupos[k].itens.reduce(function(s2,n){return s2+n.valor;},0);},0);
     var faltaSaldo=comp.contas.some(function(c){return saldoAtualizado(c)==null;});
     comp.saldo=faltaSaldo?null:comp.contas.reduce(function(s,c){return s+saldoAtualizado(c);},0);
-    comp.parteServ=somaServDaConta(comp.contas);
-    if(comp.saldo!=null&&comp.parteServ){comp.saldoTotal=comp.saldo;comp.saldo-=comp.parteServ;}
+    comp.emServ=servicoDaConta(comp.contas);
     var nomes=comp.contas.map(function(c){return nomeConta(c)||'';}).filter(Boolean);
     var comum=nomeComumContas(nomes);
     comp.tituloContas=comum?comp.contas.join(' + ')+' — '+comum:
@@ -3501,11 +3509,17 @@ function renderCcBalancete(grupos,chaves,tipoF){
       }
       var qtdNotas=comp.naturezas.reduce(function(s,k){return s+grupos[k].itens.length;},0);
       var ap=avisoPassivo(comp.contas);
+      if(comp.emServ){
+        var qn=comp.naturezas.reduce(function(s,k){return s+grupos[k].itens.length;},0),rotS=comp.emServ==='tomados'?'Tomados':'Prestados';
+        return '<tr class="linha-em-serv" title="Essa conta também tem notas de serviço: a conferência dela é feita em '+rotS+', somando as duas."><td style="white-space:nowrap"><b>'+esc(comp.tituloContas)+'</b></td>'+
+          '<td class="wrap">CFOP '+esc(cfops.join(', '))+'</td><td class="num">'+qn+'</td><td class="num">'+brl(comp.notasTotal)+'</td><td class="num">—</td>'+
+          '<td class="num"><span class="badge badge-neutral">Conferida em '+rotS+'</span><span class="sit-vazio"></span></td></tr>';
+      }
       return '<tr'+ap.tr+'><td style="white-space:nowrap">'+ap.ico+'<b>'+esc(comp.tituloContas)+'</b></td>'+
         '<td class="wrap">CFOP '+esc(cfops.join(', '))+'</td>'+
         '<td class="num">'+qtdNotas+'</td>'+
         '<td class="num">'+brl(comp.notasTotal)+'</td>'+
-        '<td class="num"'+(comp.saldoTotal!=null?' title="'+esc('Saldo '+brl(comp.saldoTotal)+' − '+brl(comp.parteServ)+' de notas de serviço (conferidas em Tomados/Prestados)')+'"':'')+'>'+(comp.saldo==null?'—':brl(comp.saldo))+(comp.saldoTotal!=null?'<span class="saldo-div">*</span>':'')+'</td>'+
+        '<td class="num">'+(comp.saldo==null?'—':brl(comp.saldo))+'</td>'+
         '<td><div class="sit">'+situacao+'</div></td></tr>';
     }).join('')+'</tbody></table></div>';
 }
@@ -3520,7 +3534,8 @@ function autoMarcarConferidos(grupos,chaves,periodoKey){
     var faltaSaldo=comp.contas.some(function(c){return saldoAtualizado(c)==null;});
     if(faltaSaldo)return;
     var notasTotal=comp.naturezas.reduce(function(s,k){return s+grupos[k].itens.reduce(function(s2,n){return s2+n.valor;},0);},0);
-    var saldo=comp.contas.reduce(function(s,c){return s+saldoAtualizado(c);},0)-somaServDaConta(comp.contas);
+    if(servicoDaConta(comp.contas))return; // conferida em Serviços
+    var saldo=comp.contas.reduce(function(s,c){return s+saldoAtualizado(c);},0);
     if(Math.abs(notasTotal)<0.005)return; // soma das notas zerada: fica fora da conferência
     if(Math.abs(notasTotal-saldo)>=0.01)return;
     comp.naturezas.forEach(function(k){
@@ -4518,17 +4533,25 @@ function renderConfServ(tipo){
     var g=grupos[k]=grupos[k]||{contas:cs,cats:{},total:0,parts:{},qtd:0};
     g.cats[c.id]=c;g.total+=n.valor;g.parts[nomeNorm(n.nome)]=n.nome;g.qtd++;
   });
+  // contas que têm nota de serviço aqui: as notas com CFOP delas entram junto
+  var comServ={};Object.keys(grupos).forEach(function(k){grupos[k].contas.forEach(function(c){comServ[c]=1;});});
+  var tNf=tipo==='tomados'?'Entrada':'Saída';
+  notasCfopDeServico(tipo).filter(noPeriodoCc).forEach(function(n){
+    var cs=contasDaNatureza(chaveNaturezaNota(n,tNf)).slice().sort();
+    if(!cs.some(function(c){return comServ[c];}))return;
+    var k=cs.join('+'),g=grupos[k]=grupos[k]||{contas:cs,cats:{},total:0,parts:{},qtd:0};
+    (g.cfops=g.cfops||{})[n.cfop]=1;g.total+=n.valor;g.parts[nomeNorm(n.nome)]=n.nome;g.qtd++;
+  });
   var ks=Object.keys(grupos).sort();
   $('#confServBal').innerHTML=!ks.length?'<p class="empty">Nenhuma nota no período.</p>':
     '<div class="table-wrap" style="max-height:none;"><table class="table-compact"><thead><tr><th>Conta</th><th>Descrição</th><th class="num">Notas</th><th class="num">Soma das notas</th><th class="num">Saldo do balancete</th><th class="num th-sit">Situação</th></tr></thead><tbody>'+
     ks.map(function(k){
       var g=grupos[k],nomes=Object.keys(g.parts).map(function(x){return g.parts[x];});
-      var cats=Object.keys(g.cats).map(function(id){return id==='geral'?'Serviços Gerais':g.cats[id].nome;}).join(', ');
+      var cats=Object.keys(g.cats).map(function(id){return id==='geral'?'Serviços Gerais':g.cats[id].nome;})
+        .concat(g.cfops?['CFOP '+Object.keys(g.cfops).sort().join(', ')]:[]).join(', ');
       var titulo=g.contas.length?g.contas.map(function(c){var nm=nomeConta(c);return c+(nm?' — '+nm:'');}).join(' + '):'Sem conta vinculada';
       var saldo=null,falta=g.contas.some(function(c){return saldoAtualizado(c)==null;});
       if(g.contas.length&&!falta)saldo=g.contas.reduce(function(s,c){return s+saldoAtualizado(c);},0);
-      var parteNf=g.contas.length?somaNfeDaConta(g.contas):0,saldoTotal=null;
-      if(saldo!=null&&parteNf){saldoTotal=saldo;saldo-=parteNf;}
       var sit;
       if(!g.contas.length)sit='<span class="badge badge-neutral">Configure em Cadastro › Configurações</span>';
       else if(Math.abs(g.total)<0.005)sit='<span class="badge badge-neutral">0,00</span>';
@@ -4541,7 +4564,7 @@ function renderConfServ(tipo){
       return '<tr'+ap.tr+'><td style="white-space:nowrap">'+ap.ico+(g.contas.length?'<b>'+esc(titulo)+'</b>':'<span style="color:var(--ink-muted)">'+esc(titulo)+'</span>')+'</td>'+
         '<td class="wrap">'+esc(cats)+'</td>'+
         '<td class="num" title="'+esc(nomes.length+' '+(nomes.length>1?cfg.parts:cfg.part)+': '+nomes.join(', '))+'">'+g.qtd+'</td>'+
-        '<td class="num">'+brl(g.total)+'</td><td class="num"'+(saldoTotal!=null?' title="'+esc('Saldo '+brl(saldoTotal)+' − '+brl(parteNf)+' de notas com CFOP (conferidas em Entradas/Saídas)')+'"':'')+'>'+(saldo==null?'—':brl(saldo))+(saldoTotal!=null?'<span class="saldo-div">*</span>':'')+'</td>'+
+        '<td class="num">'+brl(g.total)+'</td><td class="num">'+(saldo==null?'—':brl(saldo))+'</td>'+
         '<td><div class="sit">'+sit+'</div></td></tr>';
     }).join('')+'</tbody></table></div>';
   // lançamento fora do padrão — agrupado por fornecedor/cliente, igual ao agrupamento por CFOP
