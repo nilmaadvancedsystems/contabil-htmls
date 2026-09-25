@@ -773,6 +773,7 @@
     border-radius:2em;background:none;color:var(--ink-muted);font:inherit;font-size:12px;cursor:pointer;transition:color .12s ease,border-color .12s ease,background .12s ease;}
   .vista-add:hover{color:var(--ink);border-style:solid;background:var(--hover-bg);}
   .vista-add svg{width:13px;height:13px;}
+  .vista-add.vista-falta{border-color:var(--danger);color:var(--danger);background:var(--danger-soft,transparent);}
   .vista-pill{display:inline-flex;align-items:center;min-height:24px;border:1px solid var(--border);border-radius:2em;background:var(--hover-bg);font-size:12px;overflow:hidden;}
   .vista-pill-txt{border:none;background:none;color:var(--ink-muted);font:inherit;padding:2px 4px 2px 11px;cursor:pointer;}
   .vista-pill-txt b{color:var(--ink);font-weight:600;font-variant-numeric:tabular-nums;margin-left:3px;}
@@ -1299,7 +1300,7 @@
 (function(){
 "use strict";
 
-var APP_VERSION='beta 0.1.28';
+var APP_VERSION='beta 0.1.29';
 document.querySelectorAll('#verLogin,#verApp,#verDrawer').forEach(function(el){el.textContent='Versão: '+APP_VERSION;});
 
 /* ============================== ícones ============================== */
@@ -2062,7 +2063,7 @@ function ehVendaVista(n){
   if(nome.indexOf('consumidor final')>-1)return true;
   return !nome&&!doc; // sem CPF/CNPJ e sem nome: à vista, mesmo lançamento do CPF
 }
-function vendaVistaCfg(){var e=emp();if(!e.vendaVista)e.vendaVista={ativo:false,lancs:{}};if(!e.vendaVista.lancs)e.vendaVista.lancs={};return e.vendaVista;}
+function vendaVistaCfg(){var e=emp();if(!e.vendaVista)e.vendaVista={ativo:false,lancs:{}};if(!e.vendaVista.lancs)e.vendaVista.lancs={};if(!e.vendaVista.prazo)e.vendaVista.prazo={};return e.vendaVista;}
 // lançamento à vista esperado por natureza de venda: o cadastrado no CFOP ou, vazio, o que mais aparece nas vendas à vista dele
 function ctxVista(){
   var v=emp().vendaVista||{};if(!v.ativo)return null;
@@ -2072,61 +2073,101 @@ function ctxVista(){
     var k=chaveNaturezaNota(n,'Saída'),l=lancN(n.lanc),c=cont[k]=cont[k]||{};c[l]=(c[l]||0)+1;
   });
   Object.keys(cont).forEach(function(k){Object.keys(cont[k]).forEach(function(l){if(!maior[k]||cont[k][l]>cont[k][maior[k]])maior[k]=l;});});
-  return {lancs:v.lancs||{},maior:maior};
+  return {lancs:v.lancs||{},maior:maior,prazo:v.prazo||{}};
 }
 function vendaVistaCard(){
   var v=vendaVistaCfg();
   var semDoc=emp().saidas.length&&!emp().saidas.some(function(n){return n.doc!=null;});
   return '<div class="vista-card">'+
-    '<div class="vista-head"><div><p class="vista-tit">Vendas à vista</p>'+
-      '<p class="hint" style="margin:3px 0 0">Conta como à vista: CPF na coluna CPF/CNPJ, CONSUMIDOR FINAL no nome.</p></div>'+
-      '<button type="button" class="toggle-switch" role="switch" aria-checked="'+!!v.ativo+'" data-toggle-vista aria-label="Vendas à vista">'+
+    '<div class="vista-head"><div><p class="vista-tit">'+(v.ativo?'Vendas à vista e a prazo':'Vendas à vista')+'</p>'+
+      '<p class="hint" style="margin:3px 0 0">Conta como à vista: CPF na coluna CPF/CNPJ, CONSUMIDOR FINAL no nome.'+(v.ativo?' Com CNPJ, a prazo.':'')+'</p></div>'+
+      '<button type="button" class="toggle-switch" role="switch" aria-checked="'+!!v.ativo+'" data-toggle-vista aria-label="Vendas à vista e a prazo">'+
         '<span class="toggle-txt">'+(v.ativo?'On':'Off')+'</span><span class="toggle-track"><span class="toggle-knob"></span></span></button></div>'+
     (semDoc?'<p class="hint" style="margin:8px 0 0;color:var(--danger)">As saídas guardadas não têm a coluna CPF/CNPJ. Reimporte as saídas (Importar apenas novas) pro sistema reconhecer as vendas no CPF.</p>':'')+
   '</div>';
 }
-// lançamento à vista embaixo do nome de cada CFOP de venda (só com Vendas à vista ligado):
-// sem nada → botão "+ Lançamento à vista"; cadastrado → pílula cinza (clica pra alterar, × remove)
-var vistaEditando=null;
+// lançamentos à vista e a prazo embaixo do nome de cada CFOP de venda (só com a opção ligada):
+// sem nada → botão "+ Lançamento …"; cadastrado → pílula cinza (clica pra alterar, × remove).
+// Ligado, os dois são obrigatórios: não sai das Saídas sem preencher (o que falta fica em vermelho).
+var vistaEditando=null,vistaEditTipo='vista',vistaDestacar=false;
+var VISTA_TIPOS=[{t:'vista',rot:'Lançamento à vista'},{t:'prazo',rot:'Lançamento a prazo'}];
+function ehGrupoVenda(gr){return gr.cfops.some(function(cf){return ehCfopVenda({cfop:cf,desc:gr.desc});});}
+function vistaValor(k,t){var v=vendaVistaCfg();return (t==='prazo'?v.prazo:v.lancs)[k]||'';}
 function vistaRowCfop(k,gr){
   var v=emp().vendaVista||{};if(!v.ativo)return '';
-  if(!gr.cfops.some(function(cf){return ehCfopVenda({cfop:cf,desc:gr.desc});}))return '';
-  var cont={},qtd=0,maior=null;
-  gr.itens.forEach(function(n){if(ehVendaVista(n)){qtd++;var l=lancN(n.lanc);if(l)cont[l]=(cont[l]||0)+1;}});
-  Object.keys(cont).forEach(function(l){if(!maior||cont[l]>cont[maior])maior=l;});
-  var val=(v.lancs||{})[k]||'',corpo;
-  if(vistaEditando===k)
-    corpo='<span class="vista-edit"><input type="text" class="vista-inp" data-vista-cfop="'+esc(k)+'" inputmode="numeric" maxlength="6" placeholder="'+esc(maior||'Código')+'" value="'+esc(val)+'" aria-label="Lançamento à vista">'+
-      '<button type="button" class="icon-btn icon-btn-sm" data-vista-ok="'+esc(k)+'" title="Salvar (Enter)" aria-label="Salvar">'+svg('check')+'</button>'+
-      '<button type="button" class="icon-btn icon-btn-sm" data-vista-cancel title="Cancelar (Esc)" aria-label="Cancelar">'+svg('x')+'</button></span>';
-  else if(val)
-    corpo='<span class="vista-pill"><button type="button" class="vista-pill-txt" data-vista-edit="'+esc(k)+'" title="Alterar o lançamento automático das vendas à vista">Lançamento Automático <b>'+esc(val.length<4?('0000'+val).slice(-4):val)+'</b></button>'+
-      '<button type="button" class="vista-pill-x" data-vista-rm="'+esc(k)+'" title="Remover" aria-label="Remover o lançamento à vista">&times;</button></span>';
-  else
-    corpo='<button type="button" class="vista-add" data-vista-edit="'+esc(k)+'">'+svg('plus')+'Lançamento à vista</button>';
-  return '<div class="vista-row">'+corpo+
-    '<span class="vista-info">'+(qtd?qtd+' nota'+(qtd>1?'s':'')+' à vista':'nenhuma nota à vista')+(!val&&maior?' · nas notas sai o '+esc(maior):'')+'</span></div>';
+  if(!ehGrupoVenda(gr))return '';
+  var cont={vista:{},prazo:{}},qtd={vista:0,prazo:0},sug={};
+  gr.itens.forEach(function(n){var t=ehVendaVista(n)?'vista':'prazo';qtd[t]++;var l=lancN(n.lanc);if(l)cont[t][l]=(cont[t][l]||0)+1;});
+  ['vista','prazo'].forEach(function(t){
+    var fora=t==='prazo'?lancN(vistaValor(k,'vista')):'';
+    Object.keys(cont[t]).forEach(function(l){if(l!==fora&&(!sug[t]||cont[t][l]>cont[t][sug[t]]))sug[t]=l;});
+  });
+  var slot=function(o){
+    var val=vistaValor(k,o.t);
+    if(vistaEditando===k&&vistaEditTipo===o.t)
+      return '<span class="vista-edit"><input type="text" class="vista-inp" data-vista-cfop="'+esc(k)+'" data-vista-tipo="'+o.t+'" inputmode="numeric" maxlength="6" placeholder="'+esc(sug[o.t]||'Código')+'" value="'+esc(val)+'" aria-label="'+o.rot+'">'+
+        '<button type="button" class="icon-btn icon-btn-sm" data-vista-ok="'+esc(k)+'" data-vista-tipo="'+o.t+'" title="Salvar (Enter)" aria-label="Salvar">'+svg('check')+'</button>'+
+        '<button type="button" class="icon-btn icon-btn-sm" data-vista-cancel title="Cancelar (Esc)" aria-label="Cancelar">'+svg('x')+'</button></span>';
+    if(val)
+      return '<span class="vista-pill"><button type="button" class="vista-pill-txt" data-vista-edit="'+esc(k)+'" data-vista-tipo="'+o.t+'" title="Alterar">'+o.rot+' <b>'+esc(val.length<4?('0000'+val).slice(-4):val)+'</b></button>'+
+        '<button type="button" class="vista-pill-x" data-vista-rm="'+esc(k)+'" data-vista-tipo="'+o.t+'" title="Remover" aria-label="Remover">&times;</button></span>';
+    return '<button type="button" class="vista-add'+(vistaDestacar?' vista-falta':'')+'" data-vista-edit="'+esc(k)+'" data-vista-tipo="'+o.t+'">'+svg('plus')+o.rot+'</button>';
+  };
+  return '<div class="vista-row">'+VISTA_TIPOS.map(slot).join('')+
+    '<span class="vista-info">'+qtd.vista+' à vista · '+qtd.prazo+' a prazo</span></div>';
 }
+// CFOPs de venda sem o lançamento à vista ou a prazo (com a opção ligada)
+function vistaPendentes(){
+  var v=emp().vendaVista||{},out=[];if(!v.ativo)return out;
+  var g=todosGruposNatureza();
+  Object.keys(g).forEach(function(k){
+    if(g[k].tipo!=='Saída'||!ehGrupoVenda(g[k]))return;
+    VISTA_TIPOS.forEach(function(o){if(!vistaValor(k,o.t))out.push({k:k,t:o.t});});
+  });
+  return out;
+}
+// tentando sair das Saídas com lançamento faltando: avisa e destaca o que falta
+function vistaBloqueia(){
+  if(!atual||view!=='cad-cfop'||cadTipo!=='saidas')return false;
+  var p=vistaPendentes();if(!p.length){vistaDestacar=false;return false;}
+  vistaDestacar=true;vistaEditando=null;renderNaturezaDePara();
+  var qtdCfop=p.map(function(x){return x.k;}).filter(function(k,i,l){return l.indexOf(k)===i;}).length;
+  modal({icon:'alert',title:'Preencha os lançamentos',
+    text:'Com <b>Vendas à vista e a prazo</b> ligado, cada CFOP de venda precisa do lançamento à vista e do a prazo. Faltam <b>'+p.length+'</b> em <b>'+qtdCfop+'</b> CFOP'+(qtdCfop>1?'s':'')+', destacados em vermelho.',
+    buttons:[{label:'Preencher',value:true,variant:'btn-primary'}]}).then(function(){
+      var f=document.querySelector('#ndpBoxSai .vista-falta');if(f){f.scrollIntoView({behavior:'smooth',block:'center'});f.focus();}
+    });
+  return true;
+}
+document.addEventListener('click',function(e){
+  var nav=e.target.closest('#subnav [data-sec],[data-ir],#cadSeg [data-cad-tipo],#crumbInicio,#brandTagEmpresa,#btDrawerInicio,#btSairIcon');
+  if(!nav||nav.dataset.ir==='cad-cfop'||nav.dataset.cadTipo==='saidas')return;
+  if(vistaBloqueia()){e.preventDefault();e.stopImmediatePropagation();}
+},true);
+window.addEventListener('beforeunload',function(e){
+  if(atual&&view==='cad-cfop'&&cadTipo==='saidas'&&vistaPendentes().length){e.preventDefault();e.returnValue='';}
+});
 function vistaSalvar(msg){save();renderNaturezaDePara();if(view==='mov-conferencia')confAba(confAbaAtual);toast(msg);}
-function vistaGravar(k,valor){
-  var l=vendaVistaCfg().lancs,novo=String(valor||'').replace(/\D/g,'');vistaEditando=null;
+function vistaGravar(k,t,valor){
+  var cfg=vendaVistaCfg(),l=t==='prazo'?cfg.prazo:cfg.lancs,novo=String(valor||'').replace(/\D/g,''),rot=t==='prazo'?'Lançamento a prazo':'Lançamento à vista';
+  vistaEditando=null;
   if(novo===(l[k]||'')){renderNaturezaDePara();return;}
   if(novo)l[k]=novo;else delete l[k];
-  vistaSalvar(novo?'Lançamento à vista: '+novo+'.':'Lançamento à vista removido — vale o que mais aparece nas vendas à vista.');
+  vistaSalvar(novo?rot+': '+novo+'.':rot+' removido.');
 }
 document.addEventListener('click',function(e){
   if(!atual)return;
   var b=e.target.closest('[data-toggle-vista]');
-  if(b){var v=vendaVistaCfg();v.ativo=!v.ativo;
-    vistaSalvar(v.ativo?'Vendas à vista ligado — adicione o lançamento à vista nos CFOPs de venda.':'Vendas à vista desligado — o CPF segue o lançamento do CNPJ.');return;}
+  if(b){var v=vendaVistaCfg();v.ativo=!v.ativo;if(!v.ativo)vistaDestacar=false;
+    vistaSalvar(v.ativo?'Vendas à vista e a prazo ligado — preencha os dois lançamentos nos CFOPs de venda.':'Vendas à vista desligado — o CPF segue o lançamento do CNPJ.');return;}
   b=e.target.closest('[data-vista-edit]');
-  if(b){vistaEditando=b.dataset.vistaEdit;renderNaturezaDePara();
+  if(b){vistaEditando=b.dataset.vistaEdit;vistaEditTipo=b.dataset.vistaTipo||'vista';renderNaturezaDePara();
     var i=document.querySelector('.vista-inp');if(i){i.focus();i.select();}return;}
   b=e.target.closest('[data-vista-ok]');
-  if(b){var inp=b.closest('.vista-edit').querySelector('.vista-inp');vistaGravar(b.dataset.vistaOk,inp.value);return;}
+  if(b){var inp=b.closest('.vista-edit').querySelector('.vista-inp');vistaGravar(b.dataset.vistaOk,b.dataset.vistaTipo,inp.value);return;}
   if(e.target.closest('[data-vista-cancel]')){vistaEditando=null;renderNaturezaDePara();return;}
   b=e.target.closest('[data-vista-rm]');
-  if(b)vistaGravar(b.dataset.vistaRm,'');
+  if(b)vistaGravar(b.dataset.vistaRm,b.dataset.vistaTipo,'');
 });
 document.addEventListener('input',function(e){
   if(!e.target.classList||!e.target.classList.contains('vista-inp'))return;
@@ -2134,7 +2175,7 @@ document.addEventListener('input',function(e){
 });
 document.addEventListener('keydown',function(e){
   if(!e.target.classList||!e.target.classList.contains('vista-inp'))return;
-  if(e.key==='Enter'){e.preventDefault();vistaGravar(e.target.dataset.vistaCfop,e.target.value);}
+  if(e.key==='Enter'){e.preventDefault();vistaGravar(e.target.dataset.vistaCfop,e.target.dataset.vistaTipo,e.target.value);}
   else if(e.key==='Escape'){vistaEditando=null;renderNaturezaDePara();}
 });
 function naturezasDaConta(codigo){
@@ -2585,8 +2626,10 @@ function chaveNaturezaNota(n,tipoPadrao){
 }
 // venda à vista (quando ligada) é conferida contra o lançamento à vista, fora da maioria do CFOP
 function lancEsperadoSaida(n,ctx){
-  if(!ctx||!ehCfopVenda(n)||!ehVendaVista(n))return null;
-  var k=chaveNaturezaNota(n,'Saída'),l=ctx.lancs[k]||ctx.maior[k];
+  if(!ctx||!ehCfopVenda(n))return null;
+  var k=chaveNaturezaNota(n,'Saída');
+  if(!ehVendaVista(n))return ctx.prazo[k]?{lanc:ctx.prazo[k],origem:'prazo'}:null;
+  var l=ctx.lancs[k]||ctx.maior[k];
   return l?{lanc:l,origem:'vista'}:null;
 }
 function lancVistaDaNota(n,ctx){
@@ -2979,7 +3022,7 @@ function renderDivergencias(tipo){
         return '<li style="display:flex;align-items:center;gap:10px;padding:7px 0;border-top:1px solid var(--border);font-size:13.5px;flex-wrap:wrap;">'+
           '<input type="checkbox" data-resolve="'+tipo+'|'+esc(d.chave)+'" data-hist-texto="'+esc('Nota '+n.numero+' · '+n.nome+' · CFOP '+n.cfop+' · lanç. '+n.lanc)+'"'+(marcado?' checked':'')+' aria-label="Marcar como corrigido">'+
           '<span style="flex:1 1 260px;min-width:0;">'+esc(n.data)+' · nota '+esc(n.numero)+' · '+esc(n.nome)+' · CFOP '+esc(n.cfop)+'</span>'+
-          '<span class="hint" style="white-space:nowrap">lanç. <b style="color:var(--ink)">'+esc(n.lanc)+'</b> — '+(d.origem==='vista'?'venda à vista — padrão':d.origem==='cnpjVista'?'à vista, mas a nota tem CNPJ — padrão do CFOP':'padrão do CFOP')+': <b style="color:var(--ink)">'+esc(d.padrao)+'</b></span>'+
+          '<span class="hint" style="white-space:nowrap">lanç. <b style="color:var(--ink)">'+esc(n.lanc)+'</b> — '+(d.origem==='vista'?'venda à vista — padrão':d.origem==='prazo'?'venda a prazo — padrão':d.origem==='cnpjVista'?'à vista, mas a nota tem CNPJ — padrão do CFOP':'padrão do CFOP')+': <b style="color:var(--ink)">'+esc(/^d+$/.test(d.padrao)&&String(n.lanc).length>d.padrao.length?(String(n.lanc).replace(/./g,'0')+d.padrao).slice(-String(n.lanc).length):d.padrao)+'</b></span>'+
           '<span class="num" style="width:90px;text-align:right">'+brl(n.valor)+'</span>'+
         '</li>';
       }).join('')+
