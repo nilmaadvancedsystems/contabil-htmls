@@ -333,6 +333,11 @@
   /* dados importados: sem caixa nem título, só os números e a tabela */
   .imp-dados{margin-bottom:16px;}
   .cc-bal{margin-bottom:16px;}
+  tr.linha-passivo > td{background:var(--destructive-soft);}
+  tr.linha-passivo > td:first-child{box-shadow:inset 3px 0 0 var(--destructive);}
+  tr.linha-passivo > td:first-child b{color:var(--destructive);}
+  .ico-passivo{display:inline-flex;vertical-align:-3px;margin-right:6px;color:var(--destructive);cursor:help;}
+  .ico-passivo svg{width:16px;height:16px;}
   .painel-sub{font-size:12px;color:var(--ink-muted);}
 
   .chart{display:flex;align-items:flex-end;gap:6px;overflow-x:auto;padding:12px 2px 0;}
@@ -1312,7 +1317,7 @@
 (function(){
 "use strict";
 
-var APP_VERSION='beta 0.1.47';
+var APP_VERSION='beta 0.1.48';
 document.querySelectorAll('#verLogin,#verApp,#verDrawer').forEach(function(el){el.textContent='Versão: '+APP_VERSION;});
 
 /* ============================== ícones ============================== */
@@ -2244,6 +2249,14 @@ function contasDaNatureza(k){
 function saldoAtualizado(codigo){
   var c=emp().contas.filter(function(a){return a.codigo===codigo;})[0];
   return (c&&c.valor!=null)?c.valor:null;
+}
+function contasDoPassivo(codigos){
+  return (codigos||[]).filter(function(c){var a=emp().contas.filter(function(x){return x.codigo===c;})[0];return a&&a.grupo==='Passivo';});
+}
+function avisoPassivo(codigos){
+  var p=contasDoPassivo(codigos);if(!p.length)return {tr:'',ico:''};
+  var msg=(p.length>1?'Contas do passivo: ':'Conta do passivo: ')+p.join(', ')+'. Corrija o vínculo em Cadastro › Configurações (só Ativo, Despesa ou Receita).';
+  return {tr:' class="linha-passivo" title="'+esc(msg)+'"',ico:'<span class="ico-passivo" title="'+esc(msg)+'">'+svg('alert')+'</span>'};
 }
 function nomeConta(codigo){
   var c=emp().contas.filter(function(a){return a.codigo===codigo;})[0];
@@ -3448,7 +3461,8 @@ function renderCcBalancete(grupos,chaves,tipoF){
           (conferidoManual||vs==='conferido'?'<span class="badge badge-conferido" title="Diferença de '+brl(dif)+' — conferido manualmente">Conferido</span>':'<span class="badge badge-bad">'+brl(dif)+'</span>')+'<button type="button" class="icon-btn icon-btn-sm" data-ir-verificar="'+esc(comp.contas.join(','))+'" title="Revisar esta conta" aria-label="Revisar esta conta">'+svg('fileSearch')+'</button>';
       }
       var qtdNotas=comp.naturezas.reduce(function(s,k){return s+grupos[k].itens.length;},0);
-      return '<tr><td style="white-space:nowrap"><b>'+esc(comp.tituloContas)+'</b></td>'+
+      var ap=avisoPassivo(comp.contas);
+      return '<tr'+ap.tr+'><td style="white-space:nowrap">'+ap.ico+'<b>'+esc(comp.tituloContas)+'</b></td>'+
         '<td class="wrap">CFOP '+esc(cfops.join(', '))+'</td>'+
         '<td class="num">'+qtdNotas+'</td>'+
         '<td class="num">'+brl(comp.notasTotal)+'</td>'+
@@ -4480,7 +4494,8 @@ function renderConfServ(tipo){
         vs==='ok'?'<span class="badge badge-ok" title="Diferença de '+brl(dif)+' no balancete lido — o relatório da conta foi conferido sem pendências">Ok</span><span class="sit-vazio"></span>':
         (vs==='conferido'?'<span class="badge badge-conferido" title="Diferença de '+brl(dif)+' — conferido manualmente">Conferido</span>':'<span class="badge badge-bad">'+brl(dif)+'</span>')+'<button type="button" class="icon-btn icon-btn-sm" data-ir-verificar="'+esc(g.contas.join(','))+'" title="Revisar esta conta" aria-label="Revisar esta conta">'+svg('fileSearch')+'</button>';}
       if(sit.indexOf('sit-vazio')<0&&sit.indexOf('data-ir-verificar')<0)sit+='<span class="sit-vazio"></span>';
-      return '<tr><td style="white-space:nowrap">'+(g.contas.length?'<b>'+esc(titulo)+'</b>':'<span style="color:var(--ink-muted)">'+esc(titulo)+'</span>')+'</td>'+
+      var ap=avisoPassivo(g.contas);
+      return '<tr'+ap.tr+'><td style="white-space:nowrap">'+ap.ico+(g.contas.length?'<b>'+esc(titulo)+'</b>':'<span style="color:var(--ink-muted)">'+esc(titulo)+'</span>')+'</td>'+
         '<td class="wrap">'+esc(cats)+'</td>'+
         '<td class="num" title="'+esc(nomes.length+' '+(nomes.length>1?cfg.parts:cfg.part)+': '+nomes.join(', '))+'">'+g.qtd+'</td>'+
         '<td class="num">'+brl(g.total)+'</td><td class="num">'+(saldo==null?'—':brl(saldo))+'</td>'+
