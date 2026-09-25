@@ -1321,7 +1321,7 @@
 (function(){
 "use strict";
 
-var APP_VERSION='beta 0.1.57';
+var APP_VERSION='beta 0.1.58';
 document.querySelectorAll('#verLogin,#verApp,#verDrawer').forEach(function(el){el.textContent='Versão: '+APP_VERSION;});
 
 /* ============================== ícones ============================== */
@@ -3768,7 +3768,7 @@ function vcOndeNota(numero,nome){
 // uma linha do relatório no formato da tabela
 function vcLinhaRazao(l){
   var p=vcPartesHistorico(l.txt);
-  return {data:l.data,nota:p.nota,part:p.nome||l.txt,contra:l.contra||p.lanc,valor:l.valor,txt:l.txt,conta:l.conta};
+  return {data:l.data,nota:p.nota,part:(p.nome||l.txt)+(l.dica?' · '+l.dica:''),contra:l.contra||p.lanc,valor:l.valor,txt:l.txt,conta:l.conta};
 }
 // lançamento de ICMS (ex.: "ICMS a Recuperar — Pelo valor do ICMS s/ devolução…"): não é a nota repetida,
 // sai da conferência e vai pra lista própria
@@ -3778,7 +3778,7 @@ function ehLinhaIcms(l){return /\bicms\b/.test(nomeNorm(l.txt));
 function vcLinhasDuplicadas(r){
   var out=[];
   r.duplicada.forEach(function(d){
-    var ls=vc.razaoLinhas.filter(function(l){return !ehLinhaIcms(l)&&vcNumerosDoHistorico(l.txt,!!r.serv).some(function(t){return (t.replace(/^0+/,'')||t)===d.numero;});})
+    var ls=vc.razaoLinhas.filter(function(l){return !ehLinhaIcms(l)&&!l.dica&&vcNumerosDoHistorico(l.txt,!!r.serv).some(function(t){return (t.replace(/^0+/,'')||t)===d.numero;});})
       .slice().sort(function(a,b){return a.valor-b.valor;});
     ls.slice(1).forEach(function(l){out.push(vcLinhaRazao(l));});
   });
@@ -3978,6 +3978,29 @@ $('#vcBtConferir').onclick=function(){
         return (vc.razaoPorConta[a.codigo]||[]).map(function(l){return Object.assign({},l,{conta:a.codigo});});
       }));
       var icmsLinhas=vc.razaoLinhas.filter(ehLinhaIcms),linhasConf=vc.razaoLinhas.filter(function(l){return !ehLinhaIcms(l);});
+      // nota com mais de um CFOP (ex.: NF 21112 = CFOP 1411 + CFOP 1201): a linha com o valor do item do
+      // outro CFOP não é duplicada — é lançamento que pertence a outra conta; vai pra "A mais" com a dica
+      vc.razaoLinhas.forEach(function(l){delete l.dica;});
+      var deOutroCfop=[];
+      if(!vc.servTipo){
+        var chAlvo={};alvo.forEach(function(n){chAlvo[chave(n)]=1;});
+        var porNum={};vcTodasNotas().forEach(function(n){var k=String(n.numero||'').replace(/^0+/,'')||n.numero;if(k)(porNum[k]=porNum[k]||[]).push(n);});
+        linhasConf=linhasConf.filter(function(l){
+          var nums=vcNumerosDoHistorico(l.txt,false);
+          for(var j=0;j<nums.length;j++){
+            var ns=porNum[nums[j].replace(/^0+/,'')||nums[j]]||[];
+            var doAlvo=ns.filter(function(n){return chAlvo[chave(n)];});
+            if(!doAlvo.length||doAlvo.some(function(n){return Math.abs(n.valor-l.valor)<0.005;}))continue;
+            var f=ns.filter(function(n){return !chAlvo[chave(n)]&&Math.abs(n.valor-l.valor)<0.005;})[0];
+            if(f){
+              var cs=contasDaNatureza(chaveNaturezaNota(f,f.tipo));
+              l.dica='é do CFOP '+f.cfop+(cs.length?' (conta '+cs.join(', ')+')':' (sem conta vinculada)');
+              deOutroCfop.push(l);return false;
+            }
+          }
+          return true;
+        });
+      }
       var vistos={},valoresPorNumero={};
       // acha os números de cada linha do relatório uma única vez e reaproveita
       var numerosPorLinha=linhasConf.map(function(l){return vcNumerosDoHistorico(l.txt,!!vc.servTipo);});
@@ -4005,8 +4028,8 @@ $('#vcBtConferir').onclick=function(){
         });
       var aMais=linhasConf.filter(function(l,i){
         return !numerosPorLinha[i].some(function(t){return numerosAlvo[t.replace(/^0+/,'')||t];});
-      });
-      var somaSemIcms=linhasConf.reduce(function(s,l){return s+l.valor;},0);
+      }).concat(deOutroCfop);
+      var somaSemIcms=linhasConf.concat(deOutroCfop).reduce(function(s,l){return s+l.valor;},0);
       var neg=linhasConf.filter(function(l){return l.sinal<0;}).length,sinalConta=neg>linhasConf.length/2?-1:1;
       var icmsSub=icmsLinhas.reduce(function(s,l){return s+(l.sinal===sinalConta?-l.valor:l.valor);},0); // quanto o ICMS tira da conta
       var somaRazao=somaSemIcms+icmsLinhas.reduce(function(s,l){return s+l.valor;},0);
