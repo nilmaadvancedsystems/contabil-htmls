@@ -1300,11 +1300,13 @@
 (function(){
 "use strict";
 
-var APP_VERSION='beta 0.1.31';
+var APP_VERSION='beta 0.1.32';
 document.querySelectorAll('#verLogin,#verApp,#verDrawer').forEach(function(el){el.textContent='Versão: '+APP_VERSION;});
 
 /* ============================== ícones ============================== */
 var ICONS = {
+  relatorio:'<path d="M14.5 2.5H6.5a2 2 0 0 0-2 2v15a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2V7.5Z"/><path d="M14.5 2.5v5h5"/><path d="M8.5 18v-2"/><path d="M12 18v-5"/><path d="M15.5 18v-3.5"/>',
+  checklist:'<path d="m3.5 6.5 1.5 1.5 3-3"/><path d="m3.5 12.5 1.5 1.5 3-3"/><path d="m3.5 18.5 1.5 1.5 3-3"/><path d="M11.5 7h9"/><path d="M11.5 13h9"/><path d="M11.5 19h9"/>',
   briefcase:'<rect x="2.5" y="7" width="19" height="13" rx="2"/><path d="M8.5 7V5a2 2 0 0 1 2-2h3a2 2 0 0 1 2 2v2"/><path d="M2.5 12.5h19"/>',
   fileDown:'<path d="M14.5 2.5H6.5a2 2 0 0 0-2 2v15a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2V7.5Z"/><path d="M14.5 2.5v5h5"/><path d="M12 11v6"/><path d="m9.5 14.5 2.5 2.5 2.5-2.5"/>',
   fileUp:'<path d="M14.5 2.5H6.5a2 2 0 0 0-2 2v15a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2V7.5Z"/><path d="M14.5 2.5v5h5"/><path d="M12 17v-6"/><path d="m9.5 13.5 2.5-2.5 2.5 2.5"/>',
@@ -1646,8 +1648,8 @@ var SECOES=[
   {id:'cadastro',grupo:1,label:'Cadastro',icon:'link',itens:[
     {v:'cad-cfop',label:'Configurações',icon:'settings'}]},
   {id:'movimento',grupo:2,label:'Movimento',icon:'repeat',itens:[
-    {v:'mov-conferencia',label:'Conferência',icon:'checkCircle'},
-    {v:'mov-naturezas',label:'CFOPs',icon:'hash'},
+    {v:'mov-conferencia',label:'Relatório',icon:'relatorio'},
+    {v:'mov-naturezas',label:'Checklist',icon:'checklist'},
     {v:'mov-consulta',label:'Consulta',icon:'search'}]},
   {id:'auditoria',grupo:3,label:'Auditoria',icon:'clock',itens:[
     {v:'aud-historico',label:'Histórico',icon:'clock'}]}
@@ -1659,7 +1661,7 @@ var VIEWS={
   'imp-prestados':{sec:'importacao',title:'Serviços prestados'},
   'imp-tomados':{sec:'importacao',title:'Serviços tomados'},
   'cad-cfop':{sec:'cadastro',title:'Configurações'},
-  'mov-conferencia':{sec:'movimento',title:'Conferência'},
+  'mov-conferencia':{sec:'movimento',title:'Relatório'},
   'mov-naturezas':{sec:'movimento',title:'Naturezas de CFOP'},
   'mov-consulta':{sec:'movimento',title:'Consulta de notas'},
   'conferencia':{sec:'movimento',nav:'mov-conferencia',title:'Verificar por conta'},
@@ -2733,7 +2735,7 @@ function importar(tipo){
       (foraDoTipo.length?'<p class="alert-text" style="color:var(--warn)"><b>'+foraDoTipo.length+' nota(s)</b> com CFOP de '+(tipo==='entradas'?'saída':'entrada')+' ficaram de fora ('+
         esc(foraDoTipo.map(function(n){return n.cfop;}).filter(function(c,i,l){return l.indexOf(c)===i;}).join(', '))+').</p>':'')+
       (div?'<p class="alert-text" style="margin-top:8px;padding-top:8px;border-top:1px solid var(--success);color:var(--warn)">'+
-        '<b>'+div+' nota(s)</b> com lançamento fora do padrão do CFOP — veja em Movimento › Conferência › '+(tipo==='entradas'?'Entradas':'Saídas')+'.</p>':'')+
+        '<b>'+div+' nota(s)</b> com lançamento fora do padrão do CFOP — veja em Movimento › Relatório › '+(tipo==='entradas'?'Entradas':'Saídas')+'.</p>':'')+
       '</div></div>';
     renderNotas(tipo);renderImportacoes();renderGeral();if(view==='conferencia')vcEnter();
     };
@@ -2915,7 +2917,7 @@ function renderChecklistNatureza(){
       }).join('')+
     '</select>'+
     (ccState.busca?'<span class="chip-sep"></span><button type="button" class="chip-f on" data-cc-busca="" title="Limpar filtro">CFOP '+esc(ccState.busca)+' &times;</button>':'')+
-    (ccState.meses.length?'<span class="chip-sep"></span><span class="hint" style="margin:0">Meses marcados na Conferência: '+esc(ccState.meses.slice().sort().map(mesCurto).join(', '))+'</span>':'');
+    (ccState.meses.length?'<span class="chip-sep"></span><span class="hint" style="margin:0">Meses marcados no Relatório: '+esc(ccState.meses.slice().sort().map(mesCurto).join(', '))+'</span>':'');
 
   var qb=(ccState.busca||'').toLowerCase().trim();
   var chaves=todasChaves.filter(function(k){
@@ -3027,9 +3029,9 @@ function renderDivergencias(tipo){
         return '<li style="display:flex;align-items:center;gap:10px;padding:7px 0;border-top:1px solid var(--border);font-size:13.5px;flex-wrap:wrap;">'+
           '<input type="checkbox" data-resolve="'+tipo+'|'+esc(d.chave)+'" data-hist-texto="'+esc('Nota '+n.numero+' · '+n.nome+' · CFOP '+n.cfop+' · lanç. '+n.lanc)+'"'+(marcado?' checked':'')+' aria-label="Marcar como corrigido">'+
           '<span style="flex:1 1 260px;min-width:0;">'+esc(n.data)+' · nota '+esc(n.numero)+' · '+esc(n.nome)+' · CFOP '+esc(n.cfop)+'</span>'+
-          // lançamento cadastrado pelo usuário (à vista / a prazo): "Atual … Correto"; o resto segue "lanç. … padrão"
-          '<span class="hint" style="white-space:nowrap">'+(d.cadastrado?'Atual':'lanç.')+' <b style="color:var(--ink)">'+esc(n.lanc)+'</b> — '+
-            (d.cadastrado?'Correto':'padrão')+
+          // lançamento cadastrado pelo usuário (à vista / a prazo): "Correto"; tirado da maioria das notas: "Maioria"
+          '<span class="hint" style="white-space:nowrap">Atual <b style="color:var(--ink)">'+esc(n.lanc)+'</b> — '+
+            (d.cadastrado?'Correto':'Maioria')+
             ': <b style="color:var(--ink)">'+esc(lancComZeros(d.padrao,n.lanc))+'</b></span>'+
           '<span class="num" style="width:90px;text-align:right">'+brl(n.valor)+'</span>'+
         '</li>';
@@ -3797,7 +3799,7 @@ $('#vcBtConferir').onclick=function(){
       $('#vcResultadoCard').scrollIntoView({behavior:'smooth',block:'start'});
       if(reconferindo&&!faltando.length&&!duplicada.length&&!aMais.length)
         modal({tom:'ok',icon:'checkCircle',title:'Tudo certo!',
-          text:'A conta <b>'+esc(vc.conta.codigo)+' — '+esc(vc.conta.nome)+'</b> não tem mais pendências e ficou <b>Ok</b> na Conferência.',
+          text:'A conta <b>'+esc(vc.conta.codigo)+' — '+esc(vc.conta.nome)+'</b> não tem mais pendências e ficou <b>Ok</b> no Relatório.',
           buttons:[{label:'Ok',value:true,variant:'btn-primary'}]});
     }catch(e){
       toast('Não deu para comparar: '+(e&&e.message||e));
@@ -3834,7 +3836,7 @@ function vcRenderResultado(){
   $('#vcBtReimportar').hidden=limpo;$('#vcBtOk').hidden=!limpo;
   if(limpo){
     $('#vcResultado').innerHTML='<div class="alert" style="border-color:var(--success);background:var(--success-soft);color:var(--success-ink);margin:16px 0 0">'+svg('checkCircle')+
-      '<div><p class="alert-title">Nenhuma pendência nessa conta</p><p class="alert-text">Todas as notas bateram com o relatório. A conta fica <b>Ok</b> na Conferência.</p></div></div>';
+      '<div><p class="alert-title">Nenhuma pendência nessa conta</p><p class="alert-text">Todas as notas bateram com o relatório. A conta fica <b>Ok</b> no Relatório.</p></div></div>';
     return;
   }
   var html='';
