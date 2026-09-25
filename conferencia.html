@@ -1300,7 +1300,7 @@
 (function(){
 "use strict";
 
-var APP_VERSION='beta 0.1.32';
+var APP_VERSION='beta 0.1.33';
 document.querySelectorAll('#verLogin,#verApp,#verDrawer').forEach(function(el){el.textContent='Versão: '+APP_VERSION;});
 
 /* ============================== ícones ============================== */
@@ -2081,9 +2081,8 @@ function vendaVistaCard(){
   var v=vendaVistaCfg();
   var semDoc=emp().saidas.length&&!emp().saidas.some(function(n){return n.doc!=null;});
   return '<div class="vista-card">'+
-    '<div class="vista-head"><div><p class="vista-tit">'+(v.ativo?'Vendas à vista e a prazo':'Vendas à vista')+'</p>'+
-      '<p class="hint" style="margin:3px 0 0">Conta como à vista: CPF na coluna CPF/CNPJ, CONSUMIDOR FINAL no nome.'+(v.ativo?' Com CNPJ, a prazo.':'')+'</p></div>'+
-      '<button type="button" class="toggle-switch" role="switch" aria-checked="'+!!v.ativo+'" data-toggle-vista aria-label="Vendas à vista e a prazo">'+
+    '<div class="vista-head" style="align-items:center"><p class="vista-tit">'+(v.ativo?'Vendas à vista e à prazo':'Vendas à vista')+'</p>'+
+      '<button type="button" class="toggle-switch" role="switch" aria-checked="'+!!v.ativo+'" data-toggle-vista aria-label="Vendas à vista e à prazo">'+
         '<span class="toggle-txt">'+(v.ativo?'On':'Off')+'</span><span class="toggle-track"><span class="toggle-knob"></span></span></button></div>'+
     (semDoc?'<p class="hint" style="margin:8px 0 0;color:var(--danger)">As saídas guardadas não têm a coluna CPF/CNPJ. Reimporte as saídas (Importar apenas novas) pro sistema reconhecer as vendas no CPF.</p>':'')+
   '</div>';
@@ -2135,7 +2134,7 @@ function vistaBloqueia(){
   vistaDestacar=true;vistaEditando=null;renderNaturezaDePara();
   var qtdCfop=p.map(function(x){return x.k;}).filter(function(k,i,l){return l.indexOf(k)===i;}).length;
   modal({icon:'alert',title:'Preencha os lançamentos',
-    text:'Com <b>Vendas à vista e a prazo</b> ligado, cada CFOP de venda precisa do lançamento à vista e do a prazo. Faltam <b>'+p.length+'</b> em <b>'+qtdCfop+'</b> CFOP'+(qtdCfop>1?'s':'')+', destacados em vermelho.',
+    text:'Com <b>Vendas à vista e à prazo</b> ligado, cada CFOP de venda precisa do lançamento à vista e do a prazo. Faltam <b>'+p.length+'</b> em <b>'+qtdCfop+'</b> CFOP'+(qtdCfop>1?'s':'')+', destacados em vermelho.',
     buttons:[{label:'Preencher',value:true,variant:'btn-primary'}]}).then(function(){
       var f=document.querySelector('#ndpBoxSai .vista-falta');if(f){f.scrollIntoView({behavior:'smooth',block:'center'});f.focus();}
     });
@@ -2161,7 +2160,7 @@ document.addEventListener('click',function(e){
   if(!atual)return;
   var b=e.target.closest('[data-toggle-vista]');
   if(b){var v=vendaVistaCfg();v.ativo=!v.ativo;if(!v.ativo)vistaDestacar=false;
-    vistaSalvar(v.ativo?'Vendas à vista e a prazo ligado — preencha os dois lançamentos nos CFOPs de venda.':'Vendas à vista desligado — o CPF segue o lançamento do CNPJ.');return;}
+    vistaSalvar(v.ativo?'Vendas à vista e à prazo ligado — preencha os dois lançamentos nos CFOPs de venda.':'Vendas à vista desligado — o CPF segue o lançamento do CNPJ.');return;}
   b=e.target.closest('[data-vista-edit]');
   if(b){vistaEditando=b.dataset.vistaEdit;vistaEditTipo=b.dataset.vistaTipo||'vista';renderNaturezaDePara();
     var i=document.querySelector('.vista-inp');if(i){i.focus();i.select();}return;}
