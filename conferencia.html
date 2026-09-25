@@ -783,6 +783,8 @@
   .vista-edit{display:inline-flex;align-items:center;gap:4px;}
   input[type="text"].vista-inp{width:88px;min-height:0;height:24px;padding:2px 9px;font-size:12px;font-variant-numeric:tabular-nums;}
   .vista-info{font-size:12px;color:var(--ink-muted);}
+  .grupo-tag{display:inline-block;min-width:26px;color:var(--ink-muted);font-weight:600;font-size:12px;font-variant-numeric:tabular-nums;}
+  .emp-nome .grupo-tag{margin-right:6px;}
   .pill-vazio{display:inline-block;padding:0 7px;border-radius:2em;background:var(--hover-bg);border:1px solid var(--border);font-size:10.5px;font-weight:600;letter-spacing:.3px;color:var(--ink-muted);line-height:17px;vertical-align:1px;}
 
   /* Períodos importados: resumo em lista limpa */
@@ -1308,7 +1310,7 @@
 (function(){
 "use strict";
 
-var APP_VERSION='beta 0.1.41';
+var APP_VERSION='beta 0.1.42';
 document.querySelectorAll('#verLogin,#verApp,#verDrawer').forEach(function(el){el.textContent='Versão: '+APP_VERSION;});
 
 /* ============================== ícones ============================== */
@@ -2248,12 +2250,16 @@ function ndpContasDisponiveis(k,q){
   if(q){var qq=q.toLowerCase();l=l.filter(function(a){return a.nome.toLowerCase().indexOf(qq)>-1||a.codigo.indexOf(qq)>-1;});}
   return l.slice(0,50);
 }
+function grupoTag(a){
+  var l={Ativo:'A',Passivo:'P',Despesa:'D',Receita:'R'}[a&&a.grupo];
+  return '<span class="grupo-tag" title="'+esc(a&&a.grupo||'')+'">'+(l?'('+l+')':'')+'</span>';
+}
 function ndpRenderAddLista(wrap){
   var k=wrap.dataset.ndpAdd,inp=wrap.querySelector('.ndp-add-input'),box=wrap.querySelector('.ndp-add-lista');
   var l=ndpContasDisponiveis(k,inp.value.trim());
   box.hidden=false;
   box.innerHTML=!l.length?'<p class="empty" style="padding:10px 12px">Nenhuma conta encontrada.</p>':
-    '<table><tbody>'+l.map(function(a){return '<tr><td class="num" style="width:70px">'+esc(a.codigo)+'</td><td class="wrap">'+esc(a.nome)+'</td>'+
+    '<table><tbody>'+l.map(function(a){return '<tr><td style="width:38px;padding-right:0">'+grupoTag(a)+'</td><td class="num" style="width:70px">'+esc(a.codigo)+'</td><td class="wrap">'+esc(a.nome)+'</td>'+
       '<td class="num" style="width:96px"><button type="button" class="btn btn-primary btn-sm" data-ndp-escolher="'+esc(a.codigo)+'">Vincular</button></td></tr>';}).join('')+'</tbody></table>';
 }
 document.addEventListener('input',function(e){
@@ -3727,7 +3733,7 @@ function vcRenderContaLista(){
   var l=vc.contas.filter(function(a){return a.nome.toLowerCase().indexOf(q)>-1||a.codigo.indexOf(q)>-1;}).slice(0,50);
   box.hidden=false;
   box.innerHTML=!l.length?'<p class="empty">Nenhuma conta encontrada.</p>':
-    '<table><tbody>'+l.map(function(a){return '<tr><td class="num" style="width:70px">'+esc(a.codigo)+'</td><td class="wrap">'+esc(a.nome)+'</td>'+
+    '<table><tbody>'+l.map(function(a){return '<tr><td style="width:38px;padding-right:0">'+grupoTag(a)+'</td><td class="num" style="width:70px">'+esc(a.codigo)+'</td><td class="wrap">'+esc(a.nome)+'</td>'+
       '<td class="num" style="width:96px"><button class="btn btn-primary btn-sm" data-vcconta="'+esc(a.codigo)+'">Escolher</button></td></tr>';}).join('')+'</tbody></table>';
 }
 $('#vcContaTxt').addEventListener('input',vcRenderContaLista);
@@ -4351,7 +4357,7 @@ function servListaConta(w){
   var inp=w.querySelector('.serv-conta-input'),l=ndpContasDisponiveis('__serv',inp.dataset.escolhido?'':inp.value.trim());
   var box=w.querySelector('.serv-conta-lista');box.hidden=false;
   box.innerHTML=!l.length?'<p class="empty" style="padding:10px 12px">Nenhuma conta encontrada.</p>':'<div class="emp-list">'+
-    l.map(function(a){return '<button type="button" class="emp-item" data-serv-conta-escolher="'+esc(a.codigo)+'"><span class="emp-txt"><span class="emp-nome">'+esc(a.codigo)+' — '+esc(a.nome)+'</span></span></button>';}).join('')+'</div>';
+    l.map(function(a){return '<button type="button" class="emp-item" data-serv-conta-escolher="'+esc(a.codigo)+'"><span class="emp-txt"><span class="emp-nome">'+grupoTag(a)+esc(a.codigo)+' — '+esc(a.nome)+'</span></span></button>';}).join('')+'</div>';
 }
 function servConfirmar(w){
   var t=w.dataset.servAdd.split('|')[0],cat=w.dataset.servAdd.split('|')[1];
