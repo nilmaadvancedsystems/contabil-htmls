@@ -327,6 +327,7 @@
   .painel{border:1px solid var(--border);border-radius:6px;background:var(--surface);padding:16px;margin-bottom:16px;}
   .painel-head{display:flex;align-items:baseline;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:8px;}
   .painel-titulo{font-size:14px;font-weight:600;}
+  .cc-bal{margin-bottom:16px;}
   .painel-sub{font-size:12px;color:var(--ink-muted);}
 
   .chart{display:flex;align-items:flex-end;gap:6px;overflow-x:auto;padding:12px 2px 0;}
@@ -1173,10 +1174,7 @@
         </div>
         <div id="cc-aba-geral">
           <div class="stat-grid" id="ccStats"></div>
-          <div class="painel" id="ccPainelBalancete" hidden>
-            <div class="painel-head">
-              <p class="painel-titulo">Conferência com o balancete</p>
-            </div>
+          <div class="cc-bal" id="ccPainelBalancete" hidden>
             <div id="ccBalancete"></div>
           </div>
           <div class="dash-grid">
@@ -1199,8 +1197,7 @@
         <div class="card" id="confDivSaidas" hidden></div>
         <div id="confServ" hidden>
           <div class="stat-grid" id="confServStats"></div>
-          <div class="painel">
-            <div class="painel-head"><p class="painel-titulo">Conferência com o balancete</p></div>
+          <div class="cc-bal">
             <div id="confServBal"></div>
           </div>
           <div class="card" id="confServDiv"></div>
@@ -1311,7 +1308,7 @@
 (function(){
 "use strict";
 
-var APP_VERSION='beta 0.1.40';
+var APP_VERSION='beta 0.1.41';
 document.querySelectorAll('#verLogin,#verApp,#verDrawer').forEach(function(el){el.textContent='Versão: '+APP_VERSION;});
 
 /* ============================== ícones ============================== */
@@ -1794,17 +1791,10 @@ var AVISO_IMPORTAR={
   notas:{titulo:'Nenhuma nota importada',texto:'O Movimento precisa das notas de <b>entradas</b> ou <b>saídas</b>. Importe pelo menos um dos relatórios.',botao:'Importar notas',v:'imp-entradas'},
   prestados:{titulo:'Serviços prestados ainda não importados',texto:'Importe o relatório de <b>serviços prestados</b> pra ver esses dados.',botao:'Importar serviços prestados',v:'imp-prestados'},
   tomados:{titulo:'Serviços tomados ainda não importados',texto:'Importe o relatório de <b>serviços tomados</b> pra ver esses dados.',botao:'Importar serviços tomados',v:'imp-tomados'},
-  semPrestados:{titulo:'Empresa sem serviços prestados',texto:'Essa empresa está marcada como <b>não presta serviço</b>.',botao:'Presta serviço'},
   todas:{titulo:'Cadastro ainda indisponível',texto:'O Cadastro fica disponível depois de importar o <b>balancete</b> e as notas: <b>entradas e saídas</b>, ou os <b>serviços</b>.',botao:'Ir para a importação',v:null}
 };
 function avisoImportar(req){
   var a=AVISO_IMPORTAR[req];if(!a)return;
-  if(req==='semPrestados'){
-    modal({icon:'briefcase',title:a.titulo,text:a.texto,
-      buttons:[{label:'Agora não',value:false,variant:'btn-outline'},{label:a.botao,value:true,variant:'btn-primary'}]
-    }).then(function(ok){if(ok){definirPrestaServico(true);toast('Serviços prestados liberados.');}});
-    return;
-  }
   modal({icon:'upload',title:a.titulo,text:a.texto,
     buttons:[{label:'Agora não',value:false,variant:'btn-outline'},{label:a.botao,value:true,variant:'btn-primary'}]
   }).then(function(ok){if(ok)go(a.v||primeiraImportacaoPendente());});
@@ -1827,10 +1817,10 @@ function aplicarBloqueios(){
    // estes só travam com "não presta serviço" (é onde se importa/cadastra)
    ['#menu [data-ir="imp-prestados"]','prestados',1],['#cadSeg [data-cad-tipo="prestados"]','prestados',1]].forEach(function(p){
     var b=$(p[0]);if(!b)return;
-    var porFlag=semP&&p[1]==='prestados',trava=porFlag||(!p[2]&&!tem[p[1]]);
+    var oculto=semP&&p[1]==='prestados',trava=!oculto&&!p[2]&&!tem[p[1]];
+    b.hidden=oculto;
     b.classList.toggle('is-locked',trava);
-    if(porFlag){b.dataset.req='semPrestados';b.setAttribute('aria-disabled','true');b.title='Empresa marcada como não presta serviço';}
-    else if(trava){b.dataset.req=p[1];b.setAttribute('aria-disabled','true');b.title='Importe '+({entradas:'as entradas',saidas:'as saídas',prestados:'os serviços prestados',tomados:'os serviços tomados'})[p[1]]+' primeiro';}
+    if(trava){b.dataset.req=p[1];b.setAttribute('aria-disabled','true');b.title='Importe '+({entradas:'as entradas',saidas:'as saídas',prestados:'os serviços prestados',tomados:'os serviços tomados'})[p[1]]+' primeiro';}
     else{delete b.dataset.req;b.removeAttribute('aria-disabled');b.removeAttribute('title');}
   });
   // se o recorte aberto ficou travado, volta pra um que tem dados
