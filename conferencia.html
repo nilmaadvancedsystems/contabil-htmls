@@ -905,6 +905,13 @@
   .vc-num-val{margin:4px 0 0;font-size:24px;font-weight:600;color:var(--ink);font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
   .vc-num.bad .vc-num-val{color:var(--danger);}
   .vc-num.ok .vc-num-val{color:var(--success);}
+  .vc-comp{border-top:1px solid var(--border);padding:12px 18px 14px;background:var(--surface-2);}
+  .vc-comp-tit{margin:0 0 8px;font-size:12px;font-weight:600;color:var(--ink-muted);}
+  .vc-comp-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;}
+  @media (max-width:640px){.vc-comp-grid{grid-template-columns:repeat(2,minmax(0,1fr));}}
+  .vc-comp-item{border:1px solid var(--border);border-radius:6px;background:var(--surface);padding:8px 12px;min-width:0;}
+  .vc-comp-val{margin:2px 0 0;font-size:16px;font-weight:600;color:var(--ink);font-variant-numeric:tabular-nums;white-space:nowrap;}
+  .vc-comp-item.zero .vc-comp-val{color:var(--ink-muted);font-weight:400;}
   .vc-resumo-comp{margin:0;padding:10px 18px;border-top:1px solid var(--border);font-size:13px;color:var(--ink-muted);display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 10px;}
   .vc-resumo-comp > span:first-child{color:var(--ink-muted);margin-right:4px;}
   .vc-resumo-comp b{color:var(--ink);font-weight:600;font-variant-numeric:tabular-nums;}
@@ -1314,7 +1321,7 @@
 (function(){
 "use strict";
 
-var APP_VERSION='beta 0.1.56';
+var APP_VERSION='beta 0.1.57';
 document.querySelectorAll('#verLogin,#verApp,#verDrawer').forEach(function(el){el.textContent='Versão: '+APP_VERSION;});
 
 /* ============================== ícones ============================== */
@@ -4002,7 +4009,7 @@ $('#vcBtConferir').onclick=function(){
       var somaSemIcms=linhasConf.reduce(function(s,l){return s+l.valor;},0);
       var neg=linhasConf.filter(function(l){return l.sinal<0;}).length,sinalConta=neg>linhasConf.length/2?-1:1;
       var icmsSub=icmsLinhas.reduce(function(s,l){return s+(l.sinal===sinalConta?-l.valor:l.valor);},0); // quanto o ICMS tira da conta
-      var somaRazao=somaSemIcms-icmsSub;
+      var somaRazao=somaSemIcms+icmsLinhas.reduce(function(s,l){return s+l.valor;},0);
       var somaFiscal=alvo.reduce(function(s,n){return s+n.valor;},0);
       var fonte;
       if(vc.servTipo){
@@ -4036,6 +4043,14 @@ $('#vcBtConferir').onclick=function(){
     }
   },30);
 };
+// o que explica a diferença do Verificar: Faltando − Duplicadas − A mais − ICMS (o resto, se houver, aparece à parte)
+function vcComposicao(falt,dup,amais,icms,dif){
+  var resto=dif-(falt-dup-amais-icms);
+  var it=function(rot,v){var z=Math.abs(v)<0.005;return '<div class="vc-comp-item'+(z?' zero':'')+'"><p class="vc-num-rot">'+rot+'</p><p class="vc-comp-val">'+(z?'—':brl(v))+'</p></div>';};
+  return '<div class="vc-comp"><p class="vc-comp-tit">O que explica a diferença</p><div class="vc-comp-grid">'+
+    it('Faltando na conta',falt)+it('Duplicadas na conta',dup)+it('A mais na conta',amais)+it('ICMS',icms)+
+    (Math.abs(resto)>=0.005?it('Sem explicação',resto):'')+'</div></div>';
+}
 var VC_LIMITE_LINHAS=300;
 function vcAvisoTruncado(total){
   return total>VC_LIMITE_LINHAS?'<p class="hint">Mostrando '+VC_LIMITE_LINHAS+' de '+total+'. Baixe o resultado (CSV) pra ver tudo.</p>':'';
@@ -4095,9 +4110,8 @@ function vcRenderResultado(){
     '<div class="vc-resumo-nums">'+
       numero(multi?'Relatório das contas':'Relatório da conta',brl(r.somaRazao))+
       numero('Notas fiscais',brl(r.somaFiscal))+
-      (icms.length?numero('Diferença',brl(dif))+numero('ICMS',brl(r.icmsSub||0))+numero('Diferença sem ICMS',brl(dif-(r.icmsSub||0)),Math.abs(dif-(r.icmsSub||0))<0.005?'ok':'bad'):
-        numero('Diferença',brl(dif),zero?'ok':'bad'))+
-    '</div>';
+      numero('Diferença',brl(dif),zero?'ok':'bad')+
+    '</div>'+(zero?'':vcComposicao(somaFaltando,somaDuplicada,somaAMais,somaIcms,dif));
   if(limpo){
     $('#vcResultado').innerHTML='<div class="alert" style="border-color:var(--success);background:var(--success-soft);color:var(--success-ink);margin:16px 0 0">'+svg('checkCircle')+
       '<div><p class="alert-title">Nenhuma pendência '+(multi?'nessas contas':'nessa conta')+'</p><p class="alert-text">Todas as notas bateram com '+(multi?'os relatórios. As contas ficam':'o relatório. A conta fica')+' <b>Ok</b> no Relatório.</p></div></div>';
@@ -4162,7 +4176,9 @@ $('#vcBtCsv').onclick=function(){
   L.push(['Totalizador'].concat(vz,['Faltando',brl(somaFaltando)]).join(';'));
   L.push(['Totalizador'].concat(vz,['Duplicadas',brl(-somaDuplicada)]).join(';'));
   L.push(['Totalizador'].concat(vz,['A mais',brl(-somaAMais)]).join(';'));
-  L.push(['Totalizador'].concat(vz,['Diferença',brl(somaFaltando-somaDuplicada-somaAMais)]).join(';'));
+  var somaIcmsCsv=(r.icms||[]).reduce(function(s,l){return s+l.valor;},0);
+  if(somaIcmsCsv)L.push(['Totalizador'].concat(vz,['ICMS',brl(-somaIcmsCsv)]).join(';'));
+  L.push(['Totalizador'].concat(vz,['Diferença',brl(somaFaltando-somaDuplicada-somaAMais-somaIcmsCsv)]).join(';'));
   dl(L.join('\n'),'verificar-conta-'+(atual||'').replace(/\W+/g,'-').toLowerCase()+'.csv','text/csv');
 };
 $('#vcBtExcluir3').onclick=function(){
