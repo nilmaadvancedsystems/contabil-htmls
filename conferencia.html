@@ -330,6 +330,8 @@
   .painel{border:1px solid var(--border);border-radius:6px;background:var(--surface);padding:16px;margin-bottom:16px;}
   .painel-head{display:flex;align-items:baseline;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:8px;}
   .painel-titulo{font-size:14px;font-weight:600;}
+  /* dados importados: sem caixa nem título, só os números e a tabela */
+  .imp-dados{margin-bottom:16px;}
   .cc-bal{margin-bottom:16px;}
   .painel-sub{font-size:12px;color:var(--ink-muted);}
 
@@ -1027,8 +1029,7 @@
           <p class="hint">Excel do balancete (XLS Dados Arquivo)</p>
         </div>
         <div id="planoMsg" style="margin-bottom:16px"></div>
-        <div class="card">
-          <h3>Contas do balancete</h3>
+        <div class="imp-dados">
           <div id="planoInfo"></div>
         </div>
         <div class="btn-row" id="impProximoPlano" style="justify-content:flex-end;margin-top:0" hidden>
@@ -1052,8 +1053,7 @@
           <p class="hint">Relatório de entradas em Excel</p>
         </div>
         <div id="msgEnt" style="margin-bottom:16px"></div>
-        <div class="card">
-          <h3>Notas de entrada importadas</h3>
+        <div class="imp-dados">
           <div id="impViewEntradas"></div>
         </div>
         <div class="btn-row" id="impProximoEnt" style="justify-content:flex-end;margin-top:0" hidden>
@@ -1077,8 +1077,7 @@
           <p class="hint">Relatório de saídas em Excel</p>
         </div>
         <div id="msgSai" style="margin-bottom:16px"></div>
-        <div class="card">
-          <h3>Notas de saída importadas</h3>
+        <div class="imp-dados">
           <div id="impViewSaidas"></div>
         </div>
         <div class="btn-row" id="impProximoSai" style="justify-content:flex-end;margin-top:0" hidden>
@@ -1103,8 +1102,7 @@
           <p class="hint">Relatório de ISS de serviços prestados em Excel (data, nota, cliente, lançamento e valor)</p>
         </div>
         <div id="msgPrest" style="margin-bottom:16px"></div>
-        <div class="card">
-          <h3>Serviços prestados importados</h3>
+        <div class="imp-dados">
           <div id="impViewPrest"></div>
         </div>
         <div class="btn-row" id="impProximoPrest" style="justify-content:flex-end;margin-top:0" hidden>
@@ -1128,8 +1126,7 @@
           <p class="hint">Relatório de ISS de serviços tomados em Excel (data, nota, fornecedor, lançamento e valor)</p>
         </div>
         <div id="msgTom" style="margin-bottom:16px"></div>
-        <div class="card">
-          <h3>Serviços tomados importados</h3>
+        <div class="imp-dados">
           <div id="impViewTom"></div>
         </div>
         <div class="btn-row" id="impProximoTom" style="justify-content:flex-end;margin-top:0" hidden>
@@ -1318,7 +1315,7 @@
 (function(){
 "use strict";
 
-var APP_VERSION='beta 0.1.43';
+var APP_VERSION='beta 0.1.45';
 document.querySelectorAll('#verLogin,#verApp,#verDrawer').forEach(function(el){el.textContent='Versão: '+APP_VERSION;});
 
 /* ============================== ícones ============================== */
@@ -1953,13 +1950,16 @@ function go(v){
 function renderTopActions(){
   var html='';
   if(view==='mov-consulta')html='<button class="btn" type="button" data-csv="'+consultaTipo+'">'+svg('arrowDown')+'Baixar CSV</button>';
-  if(view==='imp-balancete')html='<span class="toggle-row" title="Ligado: o balancete desta empresa é apagado sempre que alguém sai dela, pra próxima conferência começar com um balancete atualizado.">Apagar balancete ao sair'+switchAutoLimpar()+'</span>';
+  if(view==='imp-balancete')html='<span class="toggle-row" title="Ligado: o balancete desta empresa é apagado sempre que alguém sai dela, pra próxima conferência começar com um balancete atualizado.">Apagar ao sair'+switchAutoLimpar()+'</span>';
+  var sImp={'imp-balancete':'Plano','imp-entradas':'Ent','imp-saidas':'Sai','imp-prestados':'Prest','imp-tomados':'Tom'}[view];
+  if(sImp&&atual&&impJaImportado()[sImp])
+    html+='<button class="btn" type="button" data-reimp-topo="'+sImp+'">'+svg('upload')+(reimp[sImp]?'Cancelar reimportação':'Reimportar')+'</button>';
   $('#topbarActions').innerHTML=html;
 }
 /* ON/OFF da limpeza automática do balancete ao sair (vale pra empresa, pra todo mundo) */
 function switchAutoLimpar(){
   var on=!atual||emp().autoLimparBalancete!==false;
-  return '<button type="button" class="toggle-switch" role="switch" aria-checked="'+on+'" data-toggle-autolimpar aria-label="Apagar balancete ao sair">'+
+  return '<button type="button" class="toggle-switch" role="switch" aria-checked="'+on+'" data-toggle-autolimpar aria-label="Apagar o balancete ao sair">'+
     '<span class="toggle-txt">'+(on?'On':'Off')+'</span><span class="toggle-track"><span class="toggle-knob"></span></span></button>';
 }
 document.addEventListener('click',function(e){
@@ -2016,7 +2016,7 @@ var contasFiltroGrupo=[];
 function renderPlano(){
   var box=$('#planoInfo');if(!atual){box.innerHTML='';return;}
   var c=emp().contas;
-  box.closest('.card').hidden=!c.length; // sem balancete, não mostra a caixa vazia
+  box.closest('.imp-dados').hidden=!c.length; // sem balancete, não mostra nada
   if(!c.length){box.innerHTML='';return;}
   var porGrupo={};
   c.forEach(function(a){var g=a.grupo||'Outros';(porGrupo[g]=porGrupo[g]||[]).push(a);});
@@ -2366,16 +2366,25 @@ function renderImportacoes(){
     '</div>':'';
   // depois de importado, a caixa de importar some e fica só o que foi importado + Reimportar/Excluir;
   // "Reimportar" traz a caixa de volta
-  var jaImportado={Plano:emp().contas.length>0,Ent:emp().entradas.length>0,Sai:emp().saidas.length>0,Prest:(emp().servPrestados||[]).length>0,Tom:(emp().servTomados||[]).length>0};
+  var jaImportado=impJaImportado();
   ['Plano','Ent','Sai','Prest','Tom'].forEach(function(s){
     var mostrar=!jaImportado[s]||reimp[s];
     impAtualizarBox(s,!mostrar);
     $('#impRow'+s).closest('.card').hidden=!mostrar;
     $('#impProximo'+s).hidden=!jaImportado[s];
     $('#btReimp'+s).textContent=reimp[s]?'Cancelar reimportação':'Reimportar';
+    $('#btReimp'+s).hidden=true; // fica no topo da página
   });
-  renderNav();
+  renderNav();renderTopActions();
 }
+function impJaImportado(){
+  var e=emp();
+  return {Plano:e.contas.length>0,Ent:e.entradas.length>0,Sai:e.saidas.length>0,Prest:(e.servPrestados||[]).length>0,Tom:(e.servTomados||[]).length>0};
+}
+document.addEventListener('click',function(e){
+  var b=e.target.closest('[data-reimp-topo]');if(!b)return;
+  $('#btReimp'+b.dataset.reimpTopo).click();
+});
 var reimp={Plano:false,Ent:false,Sai:false,Prest:false,Tom:false};
 ['Plano','Ent','Sai','Prest','Tom'].forEach(function(s){
   $('#btReimp'+s).onclick=function(){
@@ -2901,7 +2910,7 @@ function renderImportadas(tipo){
   var box=$(tipo==='entradas'?'#impViewEntradas':'#impViewSaidas');
   if(!atual||!box)return;
   var todas=emp()[tipo];
-  box.closest('.card').hidden=!todas.length; // nada importado, sem caixa vazia
+  box.closest('.imp-dados').hidden=!todas.length; // nada importado, não mostra nada
   if(!todas.length){box.innerHTML='';return;}
   var total=todas.reduce(function(s,n){return s+n.valor;},0);
   var datas=todas.map(function(n){return n.data;}).filter(Boolean).sort(function(a,b){return dataOrdem(a)-dataOrdem(b);});
@@ -4206,7 +4215,7 @@ $$('.imp-ico-up').forEach(function(el){el.innerHTML=svg('upload');});
 function renderServImportados(tipo){
   var cfg=SV[tipo],box=$('#impView'+cfg.suf);if(!atual||!box)return;
   var todas=emp()[cfg.campo]||[];
-  box.closest('.card').hidden=!todas.length;
+  box.closest('.imp-dados').hidden=!todas.length;
   if(!todas.length){box.innerHTML='';return;}
   var total=0,iss=0,parts={};todas.forEach(function(n){total+=n.valor;iss+=(n.iss||0);parts[nomeNorm(n.nome)]=1;});
   var datas=todas.map(function(n){return n.data;}).sort(function(a,b){return dataOrdem(a)-dataOrdem(b);});
