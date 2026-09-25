@@ -1300,7 +1300,7 @@
 (function(){
 "use strict";
 
-var APP_VERSION='beta 0.1.29';
+var APP_VERSION='beta 0.1.30';
 document.querySelectorAll('#verLogin,#verApp,#verDrawer').forEach(function(el){el.textContent='Versão: '+APP_VERSION;});
 
 /* ============================== ícones ============================== */
@@ -2114,7 +2114,7 @@ function vistaRowCfop(k,gr){
     return '<button type="button" class="vista-add'+(vistaDestacar?' vista-falta':'')+'" data-vista-edit="'+esc(k)+'" data-vista-tipo="'+o.t+'">'+svg('plus')+o.rot+'</button>';
   };
   return '<div class="vista-row">'+VISTA_TIPOS.map(slot).join('')+
-    '<span class="vista-info">'+qtd.vista+' à vista · '+qtd.prazo+' a prazo</span></div>';
+    '<span class="vista-info">'+qtd.vista+' nota'+(qtd.vista===1?'':'s')+' à vista e '+qtd.prazo+' nota'+(qtd.prazo===1?'':'s')+' a prazo</span></div>';
 }
 // CFOPs de venda sem o lançamento à vista ou a prazo (com a opção ligada)
 function vistaPendentes(){
