@@ -795,6 +795,7 @@
   .vista-edit{display:inline-flex;align-items:center;gap:4px;}
   input[type="text"].vista-inp{width:88px;min-height:0;height:24px;padding:2px 9px;font-size:12px;font-variant-numeric:tabular-nums;}
   .vista-info{font-size:12px;color:var(--ink-muted);}
+  .vc-pend.vc-icms{margin-top:16px;}
   .grupo-tag{display:inline-block;min-width:62px;padding:1px 8px;border-radius:2em;font-size:11px;font-weight:600;line-height:16px;text-align:center;vertical-align:1px;}
   .grupo-tag:empty{padding:0;}
   .grupo-tag.g-a,.grupo-tag.g-p,.grupo-tag.g-d,.grupo-tag.g-r{color:var(--ink-muted);background:var(--hover-bg);}
@@ -1313,7 +1314,7 @@
 (function(){
 "use strict";
 
-var APP_VERSION='beta 0.1.53';
+var APP_VERSION='beta 0.1.54';
 document.querySelectorAll('#verLogin,#verApp,#verDrawer').forEach(function(el){el.textContent='Versão: '+APP_VERSION;});
 
 /* ============================== ícones ============================== */
@@ -3755,13 +3756,17 @@ function vcOndeNota(numero,nome){
 // uma linha do relatório no formato da tabela
 function vcLinhaRazao(l){
   var p=vcPartesHistorico(l.txt);
-  return {data:l.data,nota:p.nota,part:p.nome||l.txt,contra:p.lanc,valor:l.valor,txt:l.txt,conta:l.conta};
+  return {data:l.data,nota:p.nota,part:p.nome||l.txt,contra:l.contra||p.lanc,valor:l.valor,txt:l.txt,conta:l.conta};
+}
+// lançamento de ICMS (ex.: "ICMS a Recuperar — Pelo valor do ICMS s/ devolução…"): não é a nota repetida,
+// sai da conferência e vai pra lista própria
+function ehLinhaIcms(l){return /\bicms\b/.test(nomeNorm(l.txt));
 }
 // linhas "a mais" por causa da repetição: de cada número repetido, todas menos a de menor valor
 function vcLinhasDuplicadas(r){
   var out=[];
   r.duplicada.forEach(function(d){
-    var ls=vc.razaoLinhas.filter(function(l){return vcNumerosDoHistorico(l.txt,!!r.serv).some(function(t){return (t.replace(/^0+/,'')||t)===d.numero;});})
+    var ls=vc.razaoLinhas.filter(function(l){return !ehLinhaIcms(l)&&vcNumerosDoHistorico(l.txt,!!r.serv).some(function(t){return (t.replace(/^0+/,'')||t)===d.numero;});})
       .slice().sort(function(a,b){return a.valor-b.valor;});
     ls.slice(1).forEach(function(l){out.push(vcLinhaRazao(l));});
   });
@@ -3770,10 +3775,10 @@ function vcLinhasDuplicadas(r){
 function vcLinhasFaltando(r){
   return r.faltando.map(function(n){return {data:n.data,nota:n.numero,part:n.nome,contra:'',valor:n.valor};});
 }
-function vcTabela(linhas){
+function vcTabela(linhas,cls){
   return '<div class="table-wrap"><table class="vc-tabela"><thead><tr><th>Data</th><th>Nota</th><th>Participante</th><th>Contrapartida</th><th class="num">Valor</th></tr></thead><tbody>'+
     linhas.slice(0,VC_LIMITE_LINHAS).map(function(l){
-      return '<tr class="bad"'+(l.txt?' title="'+esc(l.txt)+'"':'')+'><td class="vc-nw">'+esc(l.data)+'</td><td class="vc-nw">'+esc(l.nota||'—')+'</td>'+
+      return '<tr class="'+(cls==null?'bad':cls)+'"'+(l.txt?' title="'+esc(l.txt)+'"':'')+'><td class="vc-nw">'+esc(l.data)+'</td><td class="vc-nw">'+esc(l.nota||'—')+'</td>'+
         '<td class="vc-nome">'+esc(l.part||'—')+'</td><td class="vc-nw">'+esc(l.contra||'—')+'</td><td class="num">'+brl(l.valor)+'</td></tr>';
     }).join('')+'</tbody></table></div>'+vcAvisoTruncado(linhas.length);
 }
@@ -3863,14 +3868,14 @@ function vcLerRazao(f){
     // + a descrição completa com o número da nota) — junta todas pra não perder o número.
     var candidatosTxt=[];
     head.forEach(function(c,i){var lc=String(c).toLowerCase();if(lc.indexOf('hist')>-1||lc.indexOf('descri')>-1)candidatosTxt.push(i);});
-    var cv=col(head,'valor'),cd=col(head,'data');
+    var cv=col(head,'valor'),cd=col(head,'data'),cc=col(head,'contrapartida');
     var linhas=[];
     for(var i=h+1;i<rows.length;i++){
       var txt=candidatosTxt.length?candidatosTxt.map(function(idx){return String(rows[i][idx]||'');}).join(' '):rows[i].join(' ');
       var v=cv>=0?num(rows[i][cv]):null;
       var dt=cd>=0?String(rows[i][cd]||''):'';
       if(!txt.trim()&&v==null)continue;
-      linhas.push({txt:txt,data:dt,valor:v==null?0:Math.abs(v)});
+      linhas.push({txt:txt,data:dt,valor:v==null?0:Math.abs(v),sinal:v!=null&&v<0?-1:1,contra:cc>=0?String(rows[i][cc]||'').trim():''});
     }
     return linhas;
   });
@@ -3960,10 +3965,11 @@ $('#vcBtConferir').onclick=function(){
       if(vcMulti())vc.razaoLinhas=[].concat.apply([],vc.grupo.map(function(a){
         return (vc.razaoPorConta[a.codigo]||[]).map(function(l){return Object.assign({},l,{conta:a.codigo});});
       }));
+      var icmsLinhas=vc.razaoLinhas.filter(ehLinhaIcms),linhasConf=vc.razaoLinhas.filter(function(l){return !ehLinhaIcms(l);});
       var vistos={},valoresPorNumero={};
       // acha os números de cada linha do relatório uma única vez e reaproveita
-      var numerosPorLinha=vc.razaoLinhas.map(function(l){return vcNumerosDoHistorico(l.txt,!!vc.servTipo);});
-      vc.razaoLinhas.forEach(function(l,i){
+      var numerosPorLinha=linhasConf.map(function(l){return vcNumerosDoHistorico(l.txt,!!vc.servTipo);});
+      linhasConf.forEach(function(l,i){
         numerosPorLinha[i].forEach(function(t){
           var k=t.replace(/^0+/,'')||t;
           vistos[k]=(vistos[k]||0)+1;
@@ -3985,10 +3991,13 @@ $('#vcBtConferir').onclick=function(){
           var extra=total-Math.min.apply(null,valores);
           return {numero:k,vezes:vistos[k],valor:extra};
         });
-      var aMais=vc.razaoLinhas.filter(function(l,i){
+      var aMais=linhasConf.filter(function(l,i){
         return !numerosPorLinha[i].some(function(t){return numerosAlvo[t.replace(/^0+/,'')||t];});
       });
-      var somaRazao=vc.razaoLinhas.reduce(function(s,l){return s+l.valor;},0);
+      var somaSemIcms=linhasConf.reduce(function(s,l){return s+l.valor;},0);
+      var neg=linhasConf.filter(function(l){return l.sinal<0;}).length,sinalConta=neg>linhasConf.length/2?-1:1;
+      var icmsSub=icmsLinhas.reduce(function(s,l){return s+(l.sinal===sinalConta?-l.valor:l.valor);},0); // quanto o ICMS tira da conta
+      var somaRazao=somaSemIcms-icmsSub;
       var somaFiscal=alvo.reduce(function(s,n){return s+n.valor;},0);
       var fonte;
       if(vc.servTipo){
@@ -3996,7 +4005,7 @@ $('#vcBtConferir').onclick=function(){
         fonte=SV[vc.servTipo].rotulo+(cats.length?' · '+cats.join(', '):'');
       }else fonte='CFOP '+gr.cfops.slice().sort(function(a,b){return a.localeCompare(b,undefined,{numeric:true});}).join(', ')+(gr.desc?' — '+gr.desc:'');
       var multi=vcMulti(),rotulo=vcRotuloContas();
-      vc.resultado={faltando:faltando,duplicada:duplicada,aMais:aMais,somaRazao:somaRazao,somaFiscal:somaFiscal,alvo:alvo,serv:vc.servTipo,
+      vc.resultado={faltando:faltando,duplicada:duplicada,aMais:aMais,somaRazao:somaRazao,somaSemIcms:somaSemIcms,icmsSub:icmsSub,icms:icmsLinhas,somaFiscal:somaFiscal,alvo:alvo,serv:vc.servTipo,
         conta:multi?{codigo:vcCodigos().join(' + '),nome:rotulo.slice(rotulo.indexOf(' — ')+3)}:{codigo:vc.conta.codigo,nome:vc.conta.nome},
         contas:multi?vc.grupo.map(function(a){return {codigo:a.codigo,nome:a.nome};}):null,fonte:fonte};
       vc.abaRes='todas';
@@ -4032,6 +4041,9 @@ function vcRenderResultado(){
   var sv=r.serv,rotSv=sv?SV[sv].rotulo.toLowerCase():'';
   var catSv=function(n){return catServ(sv,catDoPart(sv,n.nome)).nome;};
   var qtdPend=r.faltando.length+r.duplicada.length+r.aMais.length,limpo=!qtdPend;
+  var icms=r.icms||[],somaIcms=icms.reduce(function(s,l){return s+l.valor;},0);
+  var secaoIcms=!icms.length?'':'<div class="vc-secao vc-secao-icms"><h4>ICMS ('+icms.length+') — <span style="color:var(--ink-muted);font-weight:600">'+brl(somaIcms)+'</span></h4>'+
+    vcTabela(icms.map(vcLinhaRazao),'')+'</div>';
   var dif=r.somaFiscal-r.somaRazao,zero=Math.abs(dif)<0.005,conta=r.conta||vc.conta||{codigo:'',nome:''};
   var numero=function(rot,valor,cls){return '<div class="vc-num'+(cls?' '+cls:'')+'"><p class="vc-num-rot">'+rot+'</p><p class="vc-num-val">'+valor+'</p></div>';};
   var multi=!!(r.contas&&r.contas.length>1),aba=multi&&r.contas.some(function(c){return c.codigo===vc.abaRes;})?vc.abaRes:'todas';
@@ -4046,7 +4058,7 @@ function vcRenderResultado(){
     var dups=vcLinhasDuplicadas(r).filter(function(l){return l.conta===aba;});
     var mais=r.aMais.filter(function(l){return l.conta===aba;}).map(vcLinhaRazao);
     var soma=function(ls){return ls.reduce(function(s,l){return s+l.valor;},0);};
-    var somaConta=soma(vc.razaoLinhas.filter(function(l){return l.conta===aba;})),pend=soma(dups)+soma(mais);
+    var somaConta=soma(vc.razaoLinhas.filter(function(l){return l.conta===aba&&!ehLinhaIcms(l);})),pend=soma(dups)+soma(mais);
     $('#vcStats').className='vc-resumo';
     $('#vcStats').innerHTML=
       '<div class="vc-resumo-conta"><p class="vc-resumo-rot">Conta contábil</p>'+
@@ -4075,11 +4087,13 @@ function vcRenderResultado(){
     '<div class="vc-resumo-nums">'+
       numero(multi?'Relatório das contas':'Relatório da conta',brl(r.somaRazao))+
       numero('Notas fiscais',brl(r.somaFiscal))+
-      numero('Diferença',brl(dif),zero?'ok':'bad')+
+      (icms.length?numero('Diferença',brl(dif))+numero('ICMS',brl(r.icmsSub||0))+numero('Diferença sem ICMS',brl(dif-(r.icmsSub||0)),Math.abs(dif-(r.icmsSub||0))<0.005?'ok':'bad'):
+        numero('Diferença',brl(dif),zero?'ok':'bad'))+
     '</div>';
   if(limpo){
     $('#vcResultado').innerHTML='<div class="alert" style="border-color:var(--success);background:var(--success-soft);color:var(--success-ink);margin:16px 0 0">'+svg('checkCircle')+
       '<div><p class="alert-title">Nenhuma pendência '+(multi?'nessas contas':'nessa conta')+'</p><p class="alert-text">Todas as notas bateram com '+(multi?'os relatórios. As contas ficam':'o relatório. A conta fica')+' <b>Ok</b> no Relatório.</p></div></div>';
+    if(secaoIcms)$('#vcResultado').insertAdjacentHTML('beforeend','<div class="vc-pend vc-icms">'+secaoIcms+'</div>');
     return;
   }
   var html='';
@@ -4098,6 +4112,7 @@ function vcRenderResultado(){
       vcTabela(vcLinhasDuplicadas(r))):'')+
     (r.aMais.length?secao('A mais na conta ('+r.aMais.length+')',somaAMais,
       vcTabela(r.aMais.map(vcLinhaRazao))):'')+
+    secaoIcms+
   '</div>';
   $('#vcResultado').innerHTML=html;
 }
@@ -4133,6 +4148,7 @@ $('#vcBtCsv').onclick=function(){
   vcLinhasFaltando(r).forEach(function(l){add('Faltando',l);});
   vcLinhasDuplicadas(r).forEach(function(l){add('Duplicada',l);});
   r.aMais.map(vcLinhaRazao).forEach(function(l){add('A mais',l);});
+  (r.icms||[]).map(vcLinhaRazao).forEach(function(l){add('ICMS',l);});
   L.push('');
   var vz=multi?['','','','']:['','',''];
   L.push(['Totalizador'].concat(vz,['Faltando',brl(somaFaltando)]).join(';'));
