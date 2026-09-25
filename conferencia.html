@@ -1315,7 +1315,7 @@
 (function(){
 "use strict";
 
-var APP_VERSION='beta 0.1.45';
+var APP_VERSION='beta 0.1.46';
 document.querySelectorAll('#verLogin,#verApp,#verDrawer').forEach(function(el){el.textContent='Versão: '+APP_VERSION;});
 
 /* ============================== ícones ============================== */
@@ -1953,7 +1953,7 @@ function renderTopActions(){
   if(view==='imp-balancete')html='<span class="toggle-row" title="Ligado: o balancete desta empresa é apagado sempre que alguém sai dela, pra próxima conferência começar com um balancete atualizado.">Apagar ao sair'+switchAutoLimpar()+'</span>';
   var sImp={'imp-balancete':'Plano','imp-entradas':'Ent','imp-saidas':'Sai','imp-prestados':'Prest','imp-tomados':'Tom'}[view];
   if(sImp&&atual&&impJaImportado()[sImp])
-    html+='<button class="btn" type="button" data-reimp-topo="'+sImp+'">'+svg('upload')+(reimp[sImp]?'Cancelar reimportação':'Reimportar')+'</button>';
+    html+='<button class="btn btn-primary" type="button" data-reimp-topo="'+sImp+'">'+(reimp[sImp]?'Cancelar reimportação':'Reimportar')+'</button>';
   $('#topbarActions').innerHTML=html;
 }
 /* ON/OFF da limpeza automática do balancete ao sair (vale pra empresa, pra todo mundo) */
