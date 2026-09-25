@@ -1314,7 +1314,7 @@
 (function(){
 "use strict";
 
-var APP_VERSION='beta 0.1.55';
+var APP_VERSION='beta 0.1.56';
 document.querySelectorAll('#verLogin,#verApp,#verDrawer').forEach(function(el){el.textContent='Versão: '+APP_VERSION;});
 
 /* ============================== ícones ============================== */
@@ -1823,7 +1823,9 @@ function aplicarBloqueios(){
    ['#consSeg [data-cons-tipo="fiscais"]','fiscais'],['#consSeg [data-cons-tipo="servicos"]','servicos'],
    ['#confSeg [data-conf-aba="prestados"]','prestados'],['#confSeg [data-conf-aba="tomados"]','tomados'],
    // estes só travam com "não presta serviço" (é onde se importa/cadastra)
-   ['#menu [data-ir="imp-prestados"]','prestados',1],['#cadSeg [data-cad-tipo="prestados"]','prestados',1]].forEach(function(p){
+   ['#menu [data-ir="imp-prestados"]','prestados',1],
+   ['#cadSeg [data-cad-tipo="entradas"]','entradas'],['#cadSeg [data-cad-tipo="saidas"]','saidas'],
+   ['#cadSeg [data-cad-tipo="tomados"]','tomados'],['#cadSeg [data-cad-tipo="prestados"]','prestados']].forEach(function(p){
     var b=$(p[0]);if(!b)return;
     var oculto=semP&&p[1]==='prestados',trava=!oculto&&!p[2]&&!tem[p[1]];
     b.hidden=oculto;
@@ -1835,6 +1837,9 @@ function aplicarBloqueios(){
   if(confAbaAtual!=='geral'&&!tem[confAbaAtual])confAbaAtual='geral';
   if(ccState.tipo==='Entrada'&&!tem.entradas||ccState.tipo==='Saída'&&!tem.saidas)ccState.tipo='';
   if(!tem[consultaTipo])consultaTipo=tem.fiscais||!tem.servicos?'fiscais':'servicos';
+  // aba do Cadastro sem dados: abre na primeira que tem
+  if(!tem[cadTipo]){var priCad=['entradas','saidas','tomados','prestados'].filter(function(t){return tem[t];})[0];
+    if(priCad){cadTipo=priCad;if(view==='cad-cfop')cadAba(priCad);}}
 }
 /* ---- ocultar barra lateral: vira um trilho só de ícones e o conteúdo estica ---- */
 var SIDEBAR_KEY='conferencia-sidebar-oculta';
