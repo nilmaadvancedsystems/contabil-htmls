@@ -1300,7 +1300,7 @@
 (function(){
 "use strict";
 
-var APP_VERSION='beta 0.1.30';
+var APP_VERSION='beta 0.1.31';
 document.querySelectorAll('#verLogin,#verApp,#verDrawer').forEach(function(el){el.textContent='Versão: '+APP_VERSION;});
 
 /* ============================== ícones ============================== */
@@ -2616,6 +2616,11 @@ $('#btAutoLanc').onclick=function(){
 function chave(n){return [n.cfop,n.numero,n.data,n.valor.toFixed(2)].join('|');}
 /* ============================== padrão de lançamento por CFOP ============================== */
 function lancN(l){return String(l==null?'':l).trim().replace(/\.0$/,'').replace(/^0+(?=\d)/,'');}
+// mostra o código cadastrado ("182") com os zeros do lançamento da nota ("00182")
+function lancComZeros(l,modelo){
+  l=String(l==null?'':l);var t=String(modelo==null?'':modelo).length;
+  return /^\d+$/.test(l)&&t>l.length?(new Array(t+1).join('0')+l).slice(-t):l;
+}
 function ehCpf(doc){return /^\d{11}$/.test(docLimpo(doc));}
 function chaveNaturezaNota(n,tipoPadrao){
   var tipo=tipoDoCfop(n.cfop)||n.tipo||tipoPadrao;
@@ -2628,9 +2633,9 @@ function chaveNaturezaNota(n,tipoPadrao){
 function lancEsperadoSaida(n,ctx){
   if(!ctx||!ehCfopVenda(n))return null;
   var k=chaveNaturezaNota(n,'Saída');
-  if(!ehVendaVista(n))return ctx.prazo[k]?{lanc:ctx.prazo[k],origem:'prazo'}:null;
+  if(!ehVendaVista(n))return ctx.prazo[k]?{lanc:ctx.prazo[k],origem:'prazo',cadastrado:true}:null;
   var l=ctx.lancs[k]||ctx.maior[k];
-  return l?{lanc:l,origem:'vista'}:null;
+  return l?{lanc:l,origem:'vista',cadastrado:!!ctx.lancs[k]}:null;
 }
 function lancVistaDaNota(n,ctx){
   if(!ctx||!ehCfopVenda(n))return null;
@@ -2661,7 +2666,7 @@ function acharDivergencias(tipo){
   emp()[tipo].forEach(function(n){
     if(!n.cfop||!n.lanc)return;
     var esp=lancEsperadoSaida(n,ctx);
-    if(esp){if(lancN(n.lanc)!==lancN(esp.lanc))out.push({nota:n,chave:chave(n),padrao:esp.lanc,origem:esp.origem});return;}
+    if(esp){if(lancN(n.lanc)!==lancN(esp.lanc))out.push({nota:n,chave:chave(n),padrao:esp.lanc,origem:esp.origem,cadastrado:esp.cadastrado});return;}
     var d=dom[n.cfop],lv=lancVistaDaNota(n,ctx);
     if(lv&&lancN(n.lanc)===lancN(lv)){out.push({nota:n,chave:chave(n),padrao:d&&d.lanc||'—',origem:'cnpjVista'});return;}
     if(!d||d.total<3)return;
@@ -3022,7 +3027,10 @@ function renderDivergencias(tipo){
         return '<li style="display:flex;align-items:center;gap:10px;padding:7px 0;border-top:1px solid var(--border);font-size:13.5px;flex-wrap:wrap;">'+
           '<input type="checkbox" data-resolve="'+tipo+'|'+esc(d.chave)+'" data-hist-texto="'+esc('Nota '+n.numero+' · '+n.nome+' · CFOP '+n.cfop+' · lanç. '+n.lanc)+'"'+(marcado?' checked':'')+' aria-label="Marcar como corrigido">'+
           '<span style="flex:1 1 260px;min-width:0;">'+esc(n.data)+' · nota '+esc(n.numero)+' · '+esc(n.nome)+' · CFOP '+esc(n.cfop)+'</span>'+
-          '<span class="hint" style="white-space:nowrap">lanç. <b style="color:var(--ink)">'+esc(n.lanc)+'</b> — '+(d.origem==='vista'?'venda à vista — padrão':d.origem==='prazo'?'venda a prazo — padrão':d.origem==='cnpjVista'?'à vista, mas a nota tem CNPJ — padrão do CFOP':'padrão do CFOP')+': <b style="color:var(--ink)">'+esc(/^d+$/.test(d.padrao)&&String(n.lanc).length>d.padrao.length?(String(n.lanc).replace(/./g,'0')+d.padrao).slice(-String(n.lanc).length):d.padrao)+'</b></span>'+
+          // lançamento cadastrado pelo usuário (à vista / a prazo): "Atual … Correto"; o resto segue "lanç. … padrão"
+          '<span class="hint" style="white-space:nowrap">'+(d.cadastrado?'Atual':'lanç.')+' <b style="color:var(--ink)">'+esc(n.lanc)+'</b> — '+
+            (d.cadastrado?'Correto':'padrão')+
+            ': <b style="color:var(--ink)">'+esc(lancComZeros(d.padrao,n.lanc))+'</b></span>'+
           '<span class="num" style="width:90px;text-align:right">'+brl(n.valor)+'</span>'+
         '</li>';
       }).join('')+
