@@ -901,10 +901,12 @@
 
   /* seletor Resumido/Detalhado no canto superior direito */
   .steps.steps-topo{margin:0;}
-  /* Cadastro: abas + "não presta serviço" na mesma linha */
-  .cad-topo{display:flex;align-items:center;justify-content:space-between;gap:8px 16px;flex-wrap:wrap;margin-bottom:16px;}
-  .cad-topo .steps{margin-bottom:0;}
-  .cad-sem-prest{display:inline-flex;align-items:center;gap:8px;font-size:14px;color:var(--ink);cursor:pointer;user-select:none;}
+  /* pergunta obrigatória: fundo embaçado */
+  .modal-overlay.modal-blur{backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);}
+  /* CFOP que não vai para o Contábil: caixa apagada */
+  .ndp-item.ndp-nao-contabil{opacity:.5;transition:opacity .15s;}
+  .ndp-item.ndp-nao-contabil:hover{opacity:.8;}
+  .ndp-nao-btn{margin-left:8px;}
   #perDetalhe .painel{margin-top:16px;}
 </style>
 </head>
@@ -1124,14 +1126,11 @@
 
       <!-- ============ CADASTRO · CONFIGURAÇÕES (entradas, saídas, tomados e prestados) ============ -->
       <section id="view-cad-cfop" hidden>
-        <div class="cad-topo">
-          <div class="steps" id="cadSeg">
-            <button class="step-pill" data-cad-tipo="entradas" type="button">Entradas</button>
-            <button class="step-pill" data-cad-tipo="saidas" type="button">Saídas</button>
-            <button class="step-pill" data-cad-tipo="tomados" type="button">Tomados</button>
-            <button class="step-pill" data-cad-tipo="prestados" type="button">Prestados</button>
-          </div>
-          <label class="cad-sem-prest"><input type="checkbox" id="chkSemPrestados">Essa empresa não presta serviço</label>
+        <div class="steps" id="cadSeg">
+          <button class="step-pill" data-cad-tipo="entradas" type="button">Entradas</button>
+          <button class="step-pill" data-cad-tipo="saidas" type="button">Saídas</button>
+          <button class="step-pill" data-cad-tipo="tomados" type="button">Tomados</button>
+          <button class="step-pill" data-cad-tipo="prestados" type="button">Prestados</button>
         </div>
         <div class="card" id="cadCardNfe">
           <h3 id="cadTitulo">Naturezas de entrada</h3>
@@ -1307,7 +1306,7 @@
 (function(){
 "use strict";
 
-var APP_VERSION='beta 0.1.35';
+var APP_VERSION='beta 0.1.36';
 document.querySelectorAll('#verLogin,#verApp,#verDrawer').forEach(function(el){el.textContent='Versão: '+APP_VERSION;});
 
 /* ============================== ícones ============================== */
@@ -1412,7 +1411,8 @@ function modal(o){
     $('#modalIcon').innerHTML=svg(o.icon||'landmark');
     ov.querySelector('.modal').classList.toggle('modal-ok',o.tom==='ok');
     $('#modalTitle').textContent=o.title;
-    $('#modalText').innerHTML=o.text;
+    $('#modalText').innerHTML=o.text||'';$('#modalText').hidden=!o.text;
+    ov.classList.toggle('modal-blur',!!o.blur);
     var a=$('#modalActions');a.innerHTML='';
     (o.buttons||[]).forEach(function(b){
       var btn=document.createElement('button');
@@ -1488,7 +1488,7 @@ function limparNomeConta(nome){
   while(reValorNaFrente.test(s))s=s.replace(reValorNaFrente,'');
   return s;
 }
-function norm(e){e.contas=(e.contas||[]).map(function(c){if(c&&c.nome)c.nome=limparNomeConta(c.nome);return c;});e.dp=e.dp||[];e.entradas=e.entradas||[];e.saidas=e.saidas||[];e.divResolvidos=e.divResolvidos||[];e.confMarcados=e.confMarcados||[];e.confHistorico=e.confHistorico||[];e.naturezaConta=e.naturezaConta||{};e.confAutoMarcados=e.confAutoMarcados||[];e.confAutoRecusados=e.confAutoRecusados||[];e.importHistorico=e.importHistorico||[];e.servPrestados=e.servPrestados||[];e.servTomados=e.servTomados||[];e.servCat=e.servCat||{};Object.keys(e.servCat).forEach(function(t){var m=e.servCat[t]||{};Object.keys(m).forEach(function(k){var x=m[k];if(x&&x.conta){var ck='serv|'+t+'|'+(x.cat==='geral'?'*':'cat:'+x.cat);if(!e.naturezaConta[ck])e.naturezaConta[ck]=[x.conta];delete x.conta;}});});e.verifConta=e.verifConta||{};e.vendaVista=e.vendaVista||{ativo:false,lancs:{}};if(!e.vendaVista.lancs)e.vendaVista.lancs={};delete e.vendaVista.lanc;delete e.servPart;delete e.lancConfig;delete e.lancAuto;Object.keys(e.naturezaConta).forEach(function(k){if(/^serv\|(tomados|prestados)\|/.test(k)&&!/\|(\*|cat:[a-z]+)$/.test(k))delete e.naturezaConta[k];});if(e.autoLimparBalancete===undefined)e.autoLimparBalancete=true;if(e.avisoBalPendente===undefined)delete e.avisoBalPendente;if(e.balanceteAssinatura===undefined){delete e.balanceteAssinatura;delete e.balanceteAssinaturaTs;}return e;}
+function norm(e){e.contas=(e.contas||[]).map(function(c){if(c&&c.nome)c.nome=limparNomeConta(c.nome);return c;});e.dp=e.dp||[];e.entradas=e.entradas||[];e.saidas=e.saidas||[];e.divResolvidos=e.divResolvidos||[];e.confMarcados=e.confMarcados||[];e.confHistorico=e.confHistorico||[];e.naturezaConta=e.naturezaConta||{};e.confAutoMarcados=e.confAutoMarcados||[];e.confAutoRecusados=e.confAutoRecusados||[];e.importHistorico=e.importHistorico||[];e.servPrestados=e.servPrestados||[];e.servTomados=e.servTomados||[];e.servCat=e.servCat||{};Object.keys(e.servCat).forEach(function(t){var m=e.servCat[t]||{};Object.keys(m).forEach(function(k){var x=m[k];if(x&&x.conta){var ck='serv|'+t+'|'+(x.cat==='geral'?'*':'cat:'+x.cat);if(!e.naturezaConta[ck])e.naturezaConta[ck]=[x.conta];delete x.conta;}});});e.verifConta=e.verifConta||{};if(e.semPrestados===true&&e.prestaServico===undefined)e.prestaServico=false;delete e.semPrestados;if(e.prestaServico===undefined)delete e.prestaServico;e.naoContabil=e.naoContabil||{};e.vendaVista=e.vendaVista||{ativo:false,lancs:{}};if(!e.vendaVista.lancs)e.vendaVista.lancs={};delete e.vendaVista.lanc;delete e.servPart;delete e.lancConfig;delete e.lancAuto;Object.keys(e.naturezaConta).forEach(function(k){if(/^serv\|(tomados|prestados)\|/.test(k)&&!/\|(\*|cat:[a-z]+)$/.test(k))delete e.naturezaConta[k];});if(e.autoLimparBalancete===undefined)e.autoLimparBalancete=true;if(e.avisoBalPendente===undefined)delete e.avisoBalPendente;if(e.balanceteAssinatura===undefined){delete e.balanceteAssinatura;delete e.balanceteAssinaturaTs;}return e;}
 
 var CLIENTES=[[462,"3M EMPREENDIMENTOS FLORESTAIS LTDA","Presumido"],[356,"A7 COMERCIO DE VEICULOS LTDA","Presumido"],[515,"A7 MOBILE LTDA","Simples"],[591,"AAP INTERMEDIACOES LTDA","Simples"],[450,"ACO FORTE METAIS LTDA","Simples"],[371,"ACSSP ADM PROMOCAO DE VENDAS LTDA","Simples"],[205,"ADEMILSON OLIVEIRA CRUZ","Simples"],[66,"ADERLEI DOS SANTOS & CIA LTDA","Presumido"],[541,"AGRIENERGY FERTIAGRO LTDA","Simples"],[533,"ALINE CARVALHO FELIX MORONI","Domésticas"],[279,"ALMEIDA & SOUZA PRODUTOS ALIMENTICIOS LTDA","Simples"],[265,"ALTA FLORESTA TRANSPORTES LTDA","Simples"],[600,"ALVES CRUZ ACADEMIA PREMIUM LTDA","Simples"],[503,"AMPLA SERVICOS DE SAUDE LTDA","Simples"],[493,"ANTONIA'S LTDA","Simples"],[174,"ARMARINHO E PAPELARIA TAIOBEIRAS LTDA","Simples"],[537,"ARTEFATO ACABAMENTOS LTDA","Simples"],[488,"ASSOCIACAO BENEFICENTE GALPAO SOLIDARIO DE LAGOA SECA","Isentas"],[536,"ASSOCIAÇÃO COMERCIAL E EMPRESARIAL DE TAIOBEIRAS","Isentas"],[342,"ASSOCIACAO DE MULHERES EM PROL DO DESENVOLVIMENTO DE RI","Isentas"],[394,"AURORA REFLORESTAMENTO E TRANSPORTES LTDA","Simples"],[395,"AURORA REFLORESTAMENTO E TRANSPORTES LTDA - FILIAL 02","Simples"],[432,"AURORA REFLORESTAMENTO E TRANSPORTES LTDA - FILIAL 03","Simples"],[231,"AUTO GIRO PECAS E ACESSORIOS LTDA","Simples"],[481,"B LIMA SERVICOS MEDICOS LTDA","Simples"],[470,"BALAO MAGICO KIDS LTDA","Simples"],[581,"BC SAUDE LTDA","Simples"],[575,"BDV LTDA","Presumido"],[86,"BIBOKA EMBALAGENS LTDA","Simples"],[599,"BIBOKA EMBALAGENS LTDA - FILIAL","Simples"],[96,"BIG LANCHES DE TAIOBEIRAS LTDA","Simples"],[207,"BMJ SOM AUTOMOTIVO LTDA","Simples"],[79,"BN ELETRODOMESTICOS LTDA","Simples"],[145,"BN ELETRODOMESTICOS LTDA","Simples"],[549,"BOOZE PUB LTDA","Simples"],[250,"BRASAO INDUSTRIA FLORESTAL LTDA","Simples"],[568,"BRAZILIAN COFFEE LTDA","Real"],[413,"BRAZILIAN FORESTRY EMPREENDIMENTOS FLORESTAIS LTDA","Real"],[414,"BRAZILIAN FORESTRY EMPREENDIMENTOS FLORESTAIS LTDA","Real"],[418,"BRAZILIAN FORESTRY EMPREENDIMENTOS FLORESTAIS LTDA - FILIAL 03","Real"],[453,"BRAZILIAN FORESTRY EMPREENDIMENTOS FLORESTAIS LTDA - FILIAL 04","Real"],[526,"C&R ESCOLA DE IDIOMAS LTDA","Simples"],[577,"CAFE RENASCER SPE LTDA","Real"],[494,"CAIXA ESCOLAR JOVITA SECUNDINA REGO","Isentas"],[560,"CAMARA DE DIRIGENTES LOJISTAS DE TAIOBEIRAS","Isentas"],[555,"CARLOS LUCAS MENDES - FAZ UNIÃO","Física"],[226,"CARLOS LUCAS MENDES - FAZ. GAMELEIRA","Física"],[62,"CARLOS LUCAS MENDES - FAZ. TABATINGA","Física"],[228,"CARLOS LUCAS MENDES - SAO JOSE","Física"],[467,"CATVAN TECNOLOGIA LTDA","Simples"],[101,"CAULIM ALVES DE SOUZA LTDA","Simples"],[455,"CENTRO DE ODONTOLOGIA E SAUDE DE TAIOBEIRAS LTDA","Simples"],[463,"CENTRO DE ODONTOLOGIA ESTETICA LTDA","Simples"],[15,"CERAMICA FORTALEZA LTDA","Simples"],[501,"CERAMICA FORTALEZA LTDA - FILIAL","Simples"],[81,"CERAMICA MINAS FORTE LTDA","Simples"],[368,"CERAMICA MINAS FORTE LTDA - FILIAL 02","Simples"],[183,"CLEIA CRUZ DE OLIVEIRA - CPF 033.911.646.38","Simples"],[597,"CONSTRU UNIAO MATERIAIS DE CONSTRUCAO LTDA","Simples"],[175,"CONSTRU-G MIRANDA MATERIAIS DE CONSTRUCAO LTDA","Simples"],[552,"CONSTRULAR MATERIAIS DE PINTURA E CONSTRUCAO LTDA","Simples"],[434,"CONSTRUNOVO LTDA","Simples"],[593,"CONSTRUTOP MATERIAIS DE CONSTRUCAO LTDA","Simples"],[468,"CONSTRUTORA E INCORPORADORA OURO VERDE LTDA","Simples"],[540,"CREATIVE COMPANY LTDA","Simples"],[589,"CREATIVE DIGITAL LTDA","Simples"],[286,"CRIATIVA EDUCACAO E TREINAMENTO LTDA","Simples"],[287,"CRIATIVA PRESTACOES DE SERVICOS EDUCACIONAIS LTDA","Simples"],[285,"CRUZ E COELHO SERVICOS MEDICOS LTDA","Simples"],[519,"DARLENE DE FREITAS C VOLPONI LTDA","Simples"],[546,"DERACI JOSE DE OLIVEIRA","Física"],[547,"DERACI JOSE DE OLIVEIRA","Física"],[565,"DJALMA MOREIRA DE AGUIAR","Simples"],[332,"DOMINGA ROSA GOMES 06371828630","Simples"],[10,"DORNAS HAVANA LTDA","Simples"],[510,"DOUGLAS AUTO CENTER LTDA","Simples"],[407,"DUDA HOME DE TAIOBEIRAS LTDA","Simples"],[421,"D´FARMA FARMACIA DE MANIPULACAO LTDA","Simples"],[177,"EDSON FREITAS LIMA","Domésticas"],[578,"ELITE HIDRAULICA E SOLDAS LTDA","Simples"],[606,"EMILLY MARQUES ARQUITETURA LTDA","Simples"],[313,"EMPORIO DAS CARNES LTDA","Simples"],[583,"EMPORIO VERDE DISTRIBUIDORA LTDA","Simples"],[345,"EMPREENDIMENTO OLIVEIRA E COSTA LTDA","Simples"],[584,"EMPREENDIMENTOS IMOBILIARIOS M&A LTDA","Presumido"],[563,"EVANDRO DE CASTRO","Física"],[499,"FARLEN XAVIER SANTOS 36075344896","MEI"],[506,"FAST EMPREENDIMENTOS AERONAUTICO LTDA","Presumido"],[542,"FELIPE ANDRADE ACADEMIA ESPECIALIZADA LTDA","Simples"],[543,"FELIPE ANDRADE ACADEMIA ESPECIALIZADA LTDA","Simples"],[309,"FITO ALIMENTOS LTDA","Simples"],[292,"FITO INDUSTRIA E COMERCIO DE ALIMENTOS LTDA","Presumido"],[137,"FLORENCIO MENDES DE OLIVEIRA","Física"],[179,"FLORENCIO MENDES DE OLIVEIRA","Física"],[23,"FLORENCIO MENDES DE OLIVEIRA LTDA","Simples"],[147,"FLORENCIO MENDES DE OLIVEIRA LTDA - FILIAL 04","Simples"],[396,"FLOROCARV REFLORESTAMENTO E TRANSPORTES LTDA","Simples"],[611,"FRANCIELLE SILVA SANTANA","Domésticas"],[572,"FREEDOM REFORESTING LTDA","Presumido"],[582,"FREEDOM REFORESTING LTDA","Presumido"],[465,"FSS SERVICOS MEDICOS LTDA","Simples"],[291,"G.A.S SAUDE DE DIVISA ALEGRE LTDA","Simples"],[277,"G.A.S SERVICOS LABORATORIAIS LTDA","Simples"],[521,"GALDUS PROJETOS INDUSTRIAIS LTDA","Simples"],[444,"GALPAO VEICULOS E LOCADORA LTDA","Presumido"],[610,"GAS TAIOBEIRAS LTDA","Simples"],[562,"GERLANE ALVES SOARES","Simples"],[525,"GILDO FARIA","Física"],[527,"GL MATERIAIS DE CONSTRUCAO LTDA","Simples"],[553,"GLM ODONTOLOGIA LTDA","Simples"],[448,"GRANMIX COMERCIO DE ALIMENTOS LTDA - FILIAL 02","Simples"],[449,"GRANMIX COMERCIO DE ALIMENTOS LTDA - MATRIZ","Simples"],[83,"GRIFFIN ARTIGOS DO VESTUARIO E ACESSORIOS LTDA","Simples"],[363,"GS EMPREENDIMENTOS COMERCIAIS LTDA","Simples"],[433,"GUGA INDUSTRIA & COMERCIO DE RACAO ANIMAL LTDA","Simples"],[423,"GUGA INDUSTRIA & COMERCIO DE RACAO ANIMAL LTDA","Simples"],[576,"GUIMARAES E SILVA INSTITUTO INTEGRADO LTDA","Simples"],[544,"HELLO NUTRITION COMERCIO DE ALIMENTOS E BEBIDAS LTDA","Simples"],[545,"HELLO NUTRITION COMERCIO DE ALIMENTOS E BEBIDAS LTDA","Simples"],[564,"HELLO NUTRITION COMERCIO DE ALIMENTOS E BEBIDAS LTDA - FILIAL","Simples"],[592,"HERMES REFLORESTAMENTO E TRANSPORTE LTDA","Simples"],[594,"HERMES REFLORESTAMENTO E TRANSPORTE LTDA - FILIAL","Simples"],[598,"IMPERIO DAS PIZZAS TAIOBEIRAS LTDA","Simples"],[393,"INFANCY SERVICOS PEDIATRICOS LTDA","Simples"],[152,"JANIO JOSE DE ALMEIDA","Simples"],[425,"JOELFLOR PEREIRA DA ROCHA - DOMÉSTICA","Domésticas"],[424,"JOELFLOR PEREIRA DA ROCHA - FAZENDA","Física"],[181,"JOSE MENDES FREITAS","Física"],[548,"JOSIEL GOMES ARRUDA SPOSITO E OUTRO","Física"],[412,"KOPEK FORESTRY EMPREENDIMENTOS FLORESTAIS LTDA","Presumido"],[389,"LATORRES DISTRIBUIDORA LTDA","Simples"],[415,"LAVICA EMPREENDIMENTOS FLORESTAIS LTDA","Presumido"],[416,"LAVICA EMPREENDIMENTOS FLORESTAIS LTDA - FILIAL 02","Presumido"],[474,"LC FLORESTAL LTDA","Presumido"],[586,"LC SERVICOS AGRICOLAS E FLORESTAIS LTDA","Simples"],[380,"LEONARDO MENDES MARQUES LTDA","Presumido"],[326,"LEONEL RODRIGUES REPRESENTACOES LTDA","Simples"],[505,"LISA COSTA AME LTDA","Simples"],[601,"LIZZ SHOW'S LTDA","Simples"],[605,"LL CENTRO ESTETICO LTDA","Simples"],[457,"LOCADORA DANUBIO AZUL LTDA","Simples"],[37,"LOTERIAS FREITAS & MENDES LTDA","Simples"],[249,"LOTERIAS TAIOBEIRAS LTDA","Simples"],[580,"LUCAS MENDES FILHO MARQUES SUCUPIRA","Física"],[314,"M A REFLORESTAMENTO E TRANSPORTES LTDA","Simples"],[40,"MADEIREIRA E MARCENARIA MIRANDA LTDA","Simples"],[489,"MARISFRUTAS LTDA","Simples"],[479,"ME ATACADO LTDA","Simples"],[65,"MERCEARIA LAGOA GRANDE LTDA","Simples"],[528,"MIKAEL DOUGLAS A DE OLIVEIRA","Simples"],[411,"MINAS FORESTRY EMPREENDIMENTOS FLORESTAIS LTDA","Presumido"],[477,"MINAS MAIS VARIEDADES LTDA","Simples"],[236,"MINIMERCADO SANTO EXPEDITO LTDA","Simples"],[358,"MITRA TRANSPORTES E SERVICOS LTDA","Presumido"],[359,"MITRA TRANSPORTES E SERVICOS LTDA","Presumido"],[257,"MODELO TRANSPORTES E SERVICOS LTDA","Simples"],[310,"MOR LABORATORIO NUTRICIONAL LTDA","Simples"],[579,"MORONI & XAVIER AUTOPECAS LTDA","Simples"],[585,"MORONI & XAVIER AUTOPECAS LTDA - FILIAL","Simples"],[551,"MURILLO MENDES DE OLIVEIRA","Simples"],[595,"NERES EMPREENDIMENTOS LTDA","Simples"],[284,"NILMA CONTABILIDADE LTDA","Simples"],[514,"OLARIA E TRANSPORTES TK LTDA","Simples"],[604,"OLARIA K&K LTDA","Simples"],[43,"ORGANIZACAO ALVES & ARAUJO CONFECCOES LTDA","Simples"],[381,"ORGANIZACOES FURTADO LTDA","Simples"],[596,"ORGANIZACOES FURTADO LTDA - FILIAL","Simples"],[348,"ORGANIZACOES JG LTDA","Simples"],[388,"ORGANIZACOES PINK BIJOUX LTDA","Simples"],[441,"OURO PRETO REFLORESTAMENTOS LTDA","Presumido"],[408,"OURO VERDE MINERACAO LTDA","Presumido"],[409,"OURO VERDE MINERACAO LTDA - FILIAL 02","Presumido"],[452,"OURO VERDE MINERACAO LTDA - FILIAL 04","Presumido"],[476,"OURO VERDE MINERACAO LTDA - FILIAL 05","Presumido"],[509,"OURO VERDE MINERACAO LTDA - FILIAL 06","Presumido"],[458,"PABLO RAMON MENDES FREITAS","Domésticas"],[191,"PEDRO JORGE SANTOS SOUZA","Física"],[49,"POSTO DE COMBUSTIVEIS ALTA FLORESTA LTDA","Presumido"],[429,"POSTO DE COMBUSTIVEIS ANDRIELE LIMITADA","Presumido"],[237,"POSTO DE COMBUSTIVEIS BERIZAL LTDA","Presumido"],[559,"POSTO DE COMBUSTIVEIS JM JOAO MANOEL II LTDA","Presumido"],[532,"POUSADA, RESTAURANTE E PANIFICADORA JM- JOAO MANOEL LTDA","Simples"],[508,"PRIME ESTETICA AVANCADA LTDA","Simples"],[550,"PRIME FISIOTERAPIA E CONSULTORIOS MEDICOS ESPECIAL","Simples"],[343,"RAIZZ EMPORIO DA SAUDE LTDA","Simples"],[569,"RDS AGREGADOS & LOGISTICA LTDA","Simples"],[307,"REGINALDA PEREIRA DA SILVA SOUSA 14920571690","Simples"],[558,"RENALD C FILHO & CIA LTDA","Simples"],[252,"RENALD DA CRUZ FILHO LIMITADA","Simples"],[50,"ROSA MENDES DE OLIVEIRA CORBELLI LTDA","Simples"],[51,"ROSILENE MARQUES MARTINS","Simples"],[149,"ROSILENE MARQUES MARTINS  - FILIAL","Simples"],[353,"SAMIR LUCAS MENDES","Física"],[573,"SCP-VIVEIRO RENASCER","Presumido"],[311,"SELMA SIMONELLY DA SILVA PEREIRA 84343540634","MEI"],[538,"SENA PARTICIPACOES LTDA","Simples"],[54,"SERRALHERIA OURO VERDE LTDA","Simples"],[347,"SILVANDE AUGUSTO MIRANDA","Física"],[366,"SOLUS REFLORESTAMENTO LTDA","Simples"],[561,"SOMA NEGOCIOS E INTERMEDIACOES FINANCEIRAS LTDA","Simples"],[446,"SPIROU CONSULTORIA E INVESTIMENTOS LTDA","Presumido"],[443,"SU SEDUCAO MODA INTIMA LTDA","Simples"],[360,"SUPERMERCADO CENTRAL DE BARREIROS LTDA","Simples"],[80,"TECNOAGRO PROJETOS E CONSULTORIA LTDA","Simples"],[298,"TEOBALDO MENDES DE OLIVEIRA LTDA","Simples"],[299,"TEOBALDO MENDES DE OLIVEIRA LTDA - FILIAL 02","Simples"],[300,"TEOBALDO MENDES DE OLIVEIRA LTDA - FILIAL 03","Simples"],[301,"TEOBALDO MENDES DE OLIVEIRA LTDA - FILIAL 04","Simples"],[496,"TIAGO SANTOS DE SOUZA","Simples"],[590,"TORIBA TECNOLOGIA E GESTAO EMPRESARIAL LTDA","Simples"],[58,"TORNEARIA VOLPONI INDUSTRIA E COMERCIO LTDA","Simples"],[55,"TORRA TORRA LTDA","Simples"],[461,"UNIVERSO CENTRO DE EDUCACAO INFANTIL LTDA","Simples"],[269,"VALDELICE ROCHA ALMEIDA","Domésticas"],[6,"VANDERLEI RUFINO DOS SANTOS","Física"],[362,"VERA LUCIA DE OLIVEIRA","Simples"],[417,"VERA REFLORESTAMENTOS LTDA","Simples"],[492,"VERSATIL LTDA","Simples"],[482,"VICTOR ARAUJO SERVICOS MEDICOS LTDA","Simples"],[232,"VICTOR GOMES ARRUDA SPOSITO","Física"],[511,"VISUAL KIDS LTDA","Simples"],[567,"VIVEIRO RENASCER LTDA","Presumido"],[288,"VOLPONI COMERCIO DE ACESSORIOS LTDA","Simples"],[571,"VOLPONI CONSTRUCOES MECANICAS INDUSTRIA E COMERCIO","Simples"],[289,"VOLPONI INDUSTRIA MECANICA LTDA","Simples"],[367,"VS AGROFLORESTAL LTDA","Presumido"],[486,"VS MEDICINA ESPECIALIZADA LTDA","Simples"],[502,"VSPOSITO SERVICOS MEDICOS LTDA","Simples"],[603,"WB SUSHI LTDA","Simples"],[466,"WR SERVICOS FLORESTAIS LTDA","Presumido"],[485,"XTREME ACADEMIA ESPECIALIZADA LTDA","Simples"],[608,"ZELO AGROINDUSTRIAS LTDA - FILIAL C. SALES","Simples"],[609,"ZELO AGROINDUSTRIAS LTDA - FILIAL SJP","Simples"],[607,"ZELO AGROINDUSTRIAS LTDA - FILIAL TAIOBEIRAS","Simples"],[602,"ZELO AGROINDUSTRIAS LTDA - MATRIZ","Simples"]];
 
@@ -1731,7 +1731,6 @@ var cadTipo='entradas';
 function cadAba(t){
   if(!$('#cadSeg'))return;
   if(t==='prestados'&&semPrest())t='entradas';
-  $('#chkSemPrestados').checked=semPrest();
   cadTipo=t;var serv=ehServ(t);
   $$('#cadSeg .step-pill').forEach(function(b){b.setAttribute('aria-current',b.dataset.cadTipo===t?'true':'false');});
   $('#cadCardNfe').hidden=serv;$('#cadCardServ').hidden=!serv;
@@ -1743,14 +1742,18 @@ function cadAba(t){
 document.addEventListener('click',function(e){
   var b=e.target.closest('#cadSeg [data-cad-tipo]');if(b)cadAba(b.dataset.cadTipo);
 });
-$('#chkSemPrestados').onchange=function(){
-  if(!atual)return;
-  var marcado=this.checked;
-  if(marcado)emp().semPrestados=true;else delete emp().semPrestados;
-  if(marcado&&cadTipo==='prestados')cadAba('entradas');
+// "Essa empresa presta serviço?" — pergunta uma única vez por empresa, obrigatória
+function definirPrestaServico(sim){
+  emp().prestaServico=!!sim;
+  if(!sim&&cadTipo==='prestados')cadAba('entradas');
   save();renderNav();
-  toast(marcado?'Serviços prestados bloqueados nessa empresa.':'Serviços prestados liberados.');
-};
+}
+function perguntarPrestaServico(){
+  if(!atual||emp().prestaServico!==undefined)return;
+  modal({blur:true,icon:'briefcase',title:'Essa empresa presta serviço?',text:'',
+    buttons:[{label:'Não',value:false,variant:'btn-outline'},{label:'Sim',value:true,variant:'btn-primary'}]
+  }).then(definirPrestaServico);
+}
 function renderNav(){
   var m=VIEWS[view]||{},ok=importacoesOk();
   // lateral fixo: as seções, sempre as mesmas, separadas por linha entre os grupos
@@ -1784,11 +1787,17 @@ var AVISO_IMPORTAR={
   notas:{titulo:'Nenhuma nota importada',texto:'O Movimento precisa das notas de <b>entradas</b> ou <b>saídas</b>. Importe pelo menos um dos relatórios.',botao:'Importar notas',v:'imp-entradas'},
   prestados:{titulo:'Serviços prestados ainda não importados',texto:'Importe o relatório de <b>serviços prestados</b> pra ver esses dados.',botao:'Importar serviços prestados',v:'imp-prestados'},
   tomados:{titulo:'Serviços tomados ainda não importados',texto:'Importe o relatório de <b>serviços tomados</b> pra ver esses dados.',botao:'Importar serviços tomados',v:'imp-tomados'},
-  semPrestados:{titulo:'Empresa sem serviços prestados',texto:'Essa empresa está marcada como <b>não presta serviço</b>. Pra liberar, desmarque em Cadastro › Configurações.',botao:'Ir para o Cadastro',v:'cad-cfop'},
+  semPrestados:{titulo:'Empresa sem serviços prestados',texto:'Essa empresa está marcada como <b>não presta serviço</b>.',botao:'Presta serviço'},
   todas:{titulo:'Cadastro ainda indisponível',texto:'O Cadastro fica disponível depois de importar o <b>balancete</b> e as notas: <b>entradas e saídas</b>, ou os <b>serviços</b>.',botao:'Ir para a importação',v:null}
 };
 function avisoImportar(req){
   var a=AVISO_IMPORTAR[req];if(!a)return;
+  if(req==='semPrestados'){
+    modal({icon:'briefcase',title:a.titulo,text:a.texto,
+      buttons:[{label:'Agora não',value:false,variant:'btn-outline'},{label:a.botao,value:true,variant:'btn-primary'}]
+    }).then(function(ok){if(ok){definirPrestaServico(true);toast('Serviços prestados liberados.');}});
+    return;
+  }
   modal({icon:'upload',title:a.titulo,text:a.texto,
     buttons:[{label:'Agora não',value:false,variant:'btn-outline'},{label:a.botao,value:true,variant:'btn-primary'}]
   }).then(function(ok){if(ok)go(a.v||primeiraImportacaoPendente());});
@@ -1975,6 +1984,7 @@ function entrar(nome){
   $('#brandTagEmpresa').title=nome;
   renderTudo();
   go(telaInicialEmpresa());
+  perguntarPrestaServico();
 }
 function sair(){
   // ao sair, o balancete desta empresa é descartado — assim, da próxima vez que
@@ -2060,22 +2070,25 @@ function renderNaturezaDePara(){
         var gr=grupos[k];
         var cfops=gr.cfops.slice().sort(function(a,b){return a.localeCompare(b,undefined,{numeric:true});});
         var titulo=cfops.join(', ')+(gr.desc?' — '+gr.desc:'');
-        var ligadas=contasDaNatureza(k);
-        return '<div class="ndp-item">'+
-          '<div class="ndp-natureza">'+esc(titulo)+'</div>'+(t==='Saída'?vistaRowCfop(k,gr):'')+
+        var ligadas=contasDaNatureza(k),nao=!ligadas.length&&naoContabil(k);
+        return '<div class="ndp-item'+(nao?' ndp-nao-contabil':'')+'">'+
+          '<div class="ndp-natureza">'+esc(titulo)+'</div>'+(t==='Saída'&&!nao?vistaRowCfop(k,gr):'')+
           '<div class="ndp-contas-row">'+
             (ligadas.length?'<div class="ndp-chips">'+ligadas.map(function(codigo){
               var c=emp().contas.filter(function(a){return a.codigo===codigo;})[0];
               return '<span class="ndp-chip">'+esc(codigo)+(c?' — '+esc(c.nome):' — fora do plano')+
                 '<button type="button" data-ndp-rm="'+esc(k)+'" data-ndp-rm-conta="'+esc(codigo)+'" title="Desvincular">&times;</button></span>';
             }).join('')+'</div>':'')+
+            (nao?'<span class="vista-pill"><span class="vista-pill-txt" style="cursor:default">Não vai para o Contábil</span>'+
+              '<button type="button" class="vista-pill-x" data-nao-contabil-rm="'+esc(k)+'" title="Desfazer" aria-label="Desfazer">&times;</button></span>':
             '<div class="ndp-add" data-ndp-add="'+esc(k)+'">'+
               '<button type="button" class="btn btn-sm ndp-add-btn" title="Vincular uma conta a esta natureza">'+svg('plus')+'Adicionar</button>'+
+              (ligadas.length?'':'<button type="button" class="btn btn-sm ndp-nao-btn" data-nao-contabil="'+esc(k)+'">Não vai para o Contábil</button>')+
               '<div class="ndp-add-campo" hidden>'+
                 '<input type="text" class="ndp-add-input" placeholder="Vincular conta — nome ou código" autocomplete="off">'+
                 '<div class="table-wrap scroll-list ndp-add-lista" style="position:absolute;top:100%;left:0;right:0;margin-top:6px;z-index:30;box-shadow:var(--shadow-lg);" hidden></div>'+
               '</div>'+
-            '</div>'+
+            '</div>')+
           '</div></div>';
       }).join('')+'</div>';
     if(t==='Saída')boxes[t].innerHTML=vendaVistaCard()+boxes[t].innerHTML;
@@ -2158,7 +2171,7 @@ function vistaPendentes(){
   var v=emp().vendaVista||{},out=[];if(!v.ativo)return out;
   var g=todosGruposNatureza();
   Object.keys(g).forEach(function(k){
-    if(g[k].tipo!=='Saída'||!ehGrupoVenda(g[k]))return;
+    if(g[k].tipo!=='Saída'||!ehGrupoVenda(g[k])||naoContabil(k))return;
     VISTA_TIPOS.forEach(function(o){if(!vistaValor(k,o.t))out.push({k:k,t:o.t});});
   });
   return out;
@@ -2266,12 +2279,14 @@ function ndpFecharCampo(wrap){
   wrap.classList.remove('aberto');
   wrap.querySelector('.ndp-add-campo').hidden=true;
   wrap.querySelector('.ndp-add-btn').hidden=false;
+  if(wrap.querySelector('.ndp-nao-btn'))wrap.querySelector('.ndp-nao-btn').hidden=false;
 }
 document.addEventListener('click',function(e){
   var b=e.target.closest('.ndp-add-btn');if(!b)return;
   var wrap=b.closest('.ndp-add');
   wrap.classList.add('aberto');b.hidden=true;
   wrap.querySelector('.ndp-add-campo').hidden=false;
+  if(wrap.querySelector('.ndp-nao-btn'))wrap.querySelector('.ndp-nao-btn').hidden=true;
   wrap.querySelector('.ndp-add-input').focus();
 });
 document.addEventListener('click',function(e){
@@ -2279,6 +2294,14 @@ document.addEventListener('click',function(e){
   var wrap=b.closest('.ndp-add'),k=wrap.dataset.ndpAdd,codigo=b.dataset.ndpEscolher;
   var atuais=contasDaNatureza(k);
   if(atuais.indexOf(codigo)<0){atuais.push(codigo);emp().naturezaConta[k]=atuais;}
+  delete emp().naoContabil[k];
+  save();renderNaturezaDePara();renderMovimentoFiltrado();renderNav();
+});
+function naoContabil(k){return !!(emp().naoContabil||{})[k];}
+document.addEventListener('click',function(e){
+  var b=e.target.closest('[data-nao-contabil],[data-nao-contabil-rm]');if(!b||!atual)return;
+  var marcar=!!b.dataset.naoContabil,k=marcar?b.dataset.naoContabil:b.dataset.naoContabilRm;
+  if(marcar)emp().naoContabil[k]=true;else delete emp().naoContabil[k];
   save();renderNaturezaDePara();renderMovimentoFiltrado();renderNav();
 });
 document.addEventListener('click',function(e){
@@ -2996,7 +3019,7 @@ function renderChecklistNatureza(){
       });
       var refConta=contasLigadas.length
         ?'<div style="font-size:12px;color:var(--ink-faint);margin-top:2px">Conta: '+esc(contasLigadas.join(' · '))+'</div>'
-        :'<div style="font-size:12px;color:var(--ink-faint);margin-top:2px;font-style:italic">Sem conta vinculada — Cadastro</div>';
+        :'<div style="font-size:12px;color:var(--ink-faint);margin-top:2px;font-style:italic">'+(naoContabil(key)?'Não vai para o Contábil':'Sem conta vinculada — Cadastro')+'</div>';
       var autoMarcado=emp().confAutoMarcados.indexOf(markKey)>-1;
       var chk='<input type="checkbox" data-cc-marca="'+esc(markKey)+'" data-cc-texto="'+esc(titulo)+'"'+(marcado?' checked':'')+
         // automático = caixinha cinza (sem cadeado); o manual continua vermelho
@@ -3945,7 +3968,7 @@ var SV={
   tomados:{campo:'servTomados',rotulo:'Serviços tomados',rotValor:'Valor do documento',lancPadrao:'527',part:'fornecedor',parts:'fornecedores',suf:'Tom',v:'imp-tomados'}
 };
 function ehServ(t){return t==='prestados'||t==='tomados';}
-function semPrest(){return !!(atual&&emp()&&emp().semPrestados);}
+function semPrest(){return !!(atual&&emp()&&emp().prestaServico===false);}
 function listaTipo(t){if(t==='prestados'&&semPrest())return [];return ehServ(t)?(emp()[SV[t].campo]||[]):emp()[t];}
 function chaveServ(n){return [n.numero,n.data,n.nome,n.valor.toFixed(2)].join('|');}
 function capital(s){return s.charAt(0).toUpperCase()+s.slice(1);}
@@ -4422,7 +4445,7 @@ db.collection('empresas').onSnapshot(function(snap){
   var novo={};
   snap.forEach(function(doc){
     var d=doc.data(),nome=d.nome||doc.id;
-    novo[nome]=norm({contas:d.contas||[],dp:d.dp||[],entradas:d.entradas||[],saidas:d.saidas||[],divResolvidos:d.divResolvidos||[],confMarcados:d.confMarcados||[],confHistorico:d.confHistorico||[],naturezaConta:d.naturezaConta||{},confAutoMarcados:d.confAutoMarcados||[],confAutoRecusados:d.confAutoRecusados||[],importHistorico:d.importHistorico||[],autoLimparBalancete:d.autoLimparBalancete,avisoBalPendente:d.avisoBalPendente,balanceteAssinatura:d.balanceteAssinatura,balanceteAssinaturaTs:d.balanceteAssinaturaTs,servPrestados:d.servPrestados||[],servTomados:d.servTomados||[],servCat:d.servCat||{},vendaVista:d.vendaVista||{ativo:false,lancs:{}},semPrestados:!!d.semPrestados,verifConta:d.verifConta||{}});
+    novo[nome]=norm({contas:d.contas||[],dp:d.dp||[],entradas:d.entradas||[],saidas:d.saidas||[],divResolvidos:d.divResolvidos||[],confMarcados:d.confMarcados||[],confHistorico:d.confHistorico||[],naturezaConta:d.naturezaConta||{},confAutoMarcados:d.confAutoMarcados||[],confAutoRecusados:d.confAutoRecusados||[],importHistorico:d.importHistorico||[],autoLimparBalancete:d.autoLimparBalancete,avisoBalPendente:d.avisoBalPendente,balanceteAssinatura:d.balanceteAssinatura,balanceteAssinaturaTs:d.balanceteAssinaturaTs,servPrestados:d.servPrestados||[],servTomados:d.servTomados||[],servCat:d.servCat||{},vendaVista:d.vendaVista||{ativo:false,lancs:{}},semPrestados:d.semPrestados,prestaServico:d.prestaServico,naoContabil:d.naoContabil||{},verifConta:d.verifConta||{}});
   });
   dados=novo;
   if(primeiraCarga){
