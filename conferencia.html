@@ -333,6 +333,8 @@
   /* dados importados: sem caixa nem título, só os números e a tabela */
   .imp-dados{margin-bottom:16px;}
   .cc-bal{margin-bottom:16px;}
+  tr.linha-em-serv > td{color:var(--ink-muted);}
+  tr.linha-em-serv > td b{color:var(--ink-muted);font-weight:600;}
   tr.linha-passivo > td{background:var(--destructive-soft);}
   tr.linha-passivo > td:first-child{box-shadow:inset 3px 0 0 var(--destructive);}
   tr.linha-passivo > td:first-child b{color:var(--destructive);}
@@ -1317,7 +1319,7 @@
 (function(){
 "use strict";
 
-var APP_VERSION='beta 0.1.48';
+var APP_VERSION='beta 0.1.49';
 document.querySelectorAll('#verLogin,#verApp,#verDrawer').forEach(function(el){el.textContent='Versão: '+APP_VERSION;});
 
 /* ============================== ícones ============================== */
@@ -2258,6 +2260,19 @@ function avisoPassivo(codigos){
   var msg=(p.length>1?'Contas do passivo: ':'Conta do passivo: ')+p.join(', ')+'. Corrija o vínculo em Cadastro › Configurações (só Ativo, Despesa ou Receita).';
   return {tr:' class="linha-passivo" title="'+esc(msg)+'"',ico:'<span class="ico-passivo" title="'+esc(msg)+'">'+svg('alert')+'</span>'};
 }
+function contasServico(tipo){
+  var s={};
+  Object.keys(emp().naturezaConta||{}).forEach(function(k){var m=/^serv\|(tomados|prestados)\|/.exec(k);if(m&&(!tipo||m[1]===tipo))contasDaNatureza(k).forEach(function(c){s[c]=m[1];});});
+  return s;
+}
+// notas com CFOP cuja natureza está ligada a uma conta de serviço (tomados ← entradas, prestados ← saídas)
+function notasCfopDeServico(tipo){
+  var sc=contasServico(tipo),t=tipo==='tomados'?'Entrada':'Saída';
+  return (emp()[tipo==='tomados'?'entradas':'saidas']||[]).filter(function(n){
+    if((tipoDoCfop(n.cfop)||t)!==t)return false;
+    return contasDaNatureza(chaveNaturezaNota(n,t)).some(function(c){return sc[c];});
+  });
+}
 function nomeConta(codigo){
   var c=emp().contas.filter(function(a){return a.codigo===codigo;})[0];
   return c?c.nome:null;
@@ -2720,7 +2735,7 @@ function lancN(l){return String(l==null?'':l).trim().replace(/\.0$/,'').replace(
 // mostra o código cadastrado ("182") com os zeros do lançamento da nota ("00182")
 function lancComZeros(l,modelo){
   l=String(l==null?'':l);var t=String(modelo==null?'':modelo).length;
-  return /^\d+$/.test(l)&&t>l.length?(new Array(t+1).join('0')+l).slice(-t):l;
+  return /^\d+$/.test(l)&&t>l.length&&/^0/.test(String(modelo))?(new Array(t+1).join('0')+l).slice(-t):l;
 }
 function ehCpf(doc){return /^\d{11}$/.test(docLimpo(doc));}
 function chaveNaturezaNota(n,tipoPadrao){
@@ -3461,7 +3476,13 @@ function renderCcBalancete(grupos,chaves,tipoF){
           (conferidoManual||vs==='conferido'?'<span class="badge badge-conferido" title="Diferença de '+brl(dif)+' — conferido manualmente">Conferido</span>':'<span class="badge badge-bad">'+brl(dif)+'</span>')+'<button type="button" class="icon-btn icon-btn-sm" data-ir-verificar="'+esc(comp.contas.join(','))+'" title="Revisar esta conta" aria-label="Revisar esta conta">'+svg('fileSearch')+'</button>';
       }
       var qtdNotas=comp.naturezas.reduce(function(s,k){return s+grupos[k].itens.length;},0);
-      var ap=avisoPassivo(comp.contas);
+      var ap=avisoPassivo(comp.contas),scs=contasServico(),emServ=comp.contas.map(function(c){return scs[c];}).filter(Boolean)[0];
+      if(emServ){
+        var qn=comp.naturezas.reduce(function(s,k){return s+grupos[k].itens.length;},0);
+        return '<tr class="linha-em-serv" title="Essa conta também recebe notas de serviço: a conferência dela é feita em '+(emServ==='tomados'?'Tomados':'Prestados')+', somando as duas."><td style="white-space:nowrap"><b>'+esc(comp.tituloContas)+'</b></td>'+
+          '<td class="wrap">CFOP '+esc(cfops.join(', '))+'</td><td class="num">'+qn+'</td><td class="num">'+brl(comp.notasTotal)+'</td><td class="num">—</td>'+
+          '<td class="num"><span class="badge badge-neutral">Conferida em '+(emServ==='tomados'?'Tomados':'Prestados')+'</span><span class="sit-vazio"></span></td></tr>';
+      }
       return '<tr'+ap.tr+'><td style="white-space:nowrap">'+ap.ico+'<b>'+esc(comp.tituloContas)+'</b></td>'+
         '<td class="wrap">CFOP '+esc(cfops.join(', '))+'</td>'+
         '<td class="num">'+qtdNotas+'</td>'+
@@ -3646,8 +3667,10 @@ function vcServDaConta(codigo){
 }
 function vcNotasServ(){
   if(!vc.servTipo||!vc.conta)return [];
-  var t=vc.servTipo,cods=vcCodigos();
-  return listaTipo(t).filter(function(n){return contasDoPart(t,n.nome).some(function(c){return cods.indexOf(c)>-1;});});
+  var t=vc.servTipo,cods=vcCodigos(),tNf=t==='tomados'?'Entrada':'Saída';
+  var serv=listaTipo(t).filter(function(n){return contasDoPart(t,n.nome).some(function(c){return cods.indexOf(c)>-1;});});
+  var nf=notasCfopDeServico(t).filter(function(n){return contasDaNatureza(chaveNaturezaNota(n,tNf)).some(function(c){return cods.indexOf(c)>-1;});});
+  return serv.concat(nf);
 }
 /* o relatório da conta (Excel) só existe pra conferência daquele momento: nunca vai pra
    nuvem, e ao sair da tela Verificar por conta é apagado da memória junto com o resultado */
@@ -3841,7 +3864,7 @@ $('#vcRazaoFile').addEventListener('change',function(){if(this.files[0])$('#vcBt
 function vcMontarCfopSelect(){
   // conta ligada a CFOP continua no modo de sempre; ligada só a serviço → modo serviços (sem CFOP)
   var temCfop=vc.conta&&naturezasDaConta(vc.conta.codigo).some(function(k){return k.indexOf('serv|')!==0;});
-  vc.servTipo=vc.conta&&!temCfop?vcServDaConta(vc.conta.codigo):null;
+  vc.servTipo=vc.conta?vcServDaConta(vc.conta.codigo):null;
   $('#vcCfopCampo').hidden=!!vc.servTipo;$('#vcServCampo').hidden=!vc.servTipo;
   if(vc.servTipo){
     var ns=vcNotasServ(),ps={},soma=ns.reduce(function(s,n){ps[nomeNorm(n.nome)]=1;return s+n.valor;},0),q=Object.keys(ps).length,cfg=SV[vc.servTipo];
@@ -4477,12 +4500,20 @@ function renderConfServ(tipo){
     var g=grupos[k]=grupos[k]||{contas:cs,cats:{},total:0,parts:{},qtd:0};
     g.cats[c.id]=c;g.total+=n.valor;g.parts[nomeNorm(n.nome)]=n.nome;g.qtd++;
   });
+  var tNf=tipo==='tomados'?'Entrada':'Saída';
+  notasCfopDeServico(tipo).filter(function(n){var t=dataOrdem(n.data);return (!de||t>=de)&&(!ate||t<=ate)&&(!ccState.meses.length||ccState.meses.indexOf(n.comp)>-1);})
+    .forEach(function(n){
+      var cs=contasDaNatureza(chaveNaturezaNota(n,tNf)).slice().sort(),k=cs.join('+');
+      var g=grupos[k]=grupos[k]||{contas:cs,cats:{},total:0,parts:{},qtd:0};
+      (g.cfops=g.cfops||{})[n.cfop]=1;g.total+=n.valor;g.parts[nomeNorm(n.nome)]=n.nome;g.qtd++;g.qtdNf=(g.qtdNf||0)+1;
+    });
   var ks=Object.keys(grupos).sort();
   $('#confServBal').innerHTML=!ks.length?'<p class="empty">Nenhuma nota no período.</p>':
     '<div class="table-wrap" style="max-height:none;"><table class="table-compact"><thead><tr><th>Conta</th><th>Descrição</th><th class="num">Notas</th><th class="num">Soma das notas</th><th class="num">Saldo do balancete</th><th class="num th-sit">Situação</th></tr></thead><tbody>'+
     ks.map(function(k){
       var g=grupos[k],nomes=Object.keys(g.parts).map(function(x){return g.parts[x];});
-      var cats=Object.keys(g.cats).map(function(id){return id==='geral'?'Serviços Gerais':g.cats[id].nome;}).join(', ');
+      var cats=Object.keys(g.cats).map(function(id){return id==='geral'?'Serviços Gerais':g.cats[id].nome;})
+        .concat(g.cfops?['CFOP '+Object.keys(g.cfops).sort().join(', ')]:[]).join(', ');
       var titulo=g.contas.length?g.contas.map(function(c){var nm=nomeConta(c);return c+(nm?' — '+nm:'');}).join(' + '):'Sem conta vinculada';
       var saldo=null,falta=g.contas.some(function(c){return saldoAtualizado(c)==null;});
       if(g.contas.length&&!falta)saldo=g.contas.reduce(function(s,c){return s+saldoAtualizado(c);},0);
