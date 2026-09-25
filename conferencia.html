@@ -1299,7 +1299,7 @@
 (function(){
 "use strict";
 
-var APP_VERSION='beta 0.1.27';
+var APP_VERSION='beta 0.1.28';
 document.querySelectorAll('#verLogin,#verApp,#verDrawer').forEach(function(el){el.textContent='Versão: '+APP_VERSION;});
 
 /* ============================== ícones ============================== */
@@ -2052,9 +2052,13 @@ function ehCfopVenda(n){
   var d=nomeNorm(CFOP_DESC[n.cfop]||n.desc||'');
   return d.indexOf('venda')===0&&d.indexOf('ativo imobilizado')<0;
 }
+function docLimpo(doc){
+  var d=String(doc||'').toUpperCase().replace(/[^0-9A-Z]/g,'');
+  return /^0*$/.test(d)?'':d;
+}
 function ehVendaVista(n){
-  var doc=String(n.doc||'').replace(/\D/g,''),nome=nomeNorm(n.nome);
-  if(doc.length===11)return true;
+  var doc=docLimpo(n.doc),nome=nomeNorm(n.nome);
+  if(/^\d{11}$/.test(doc))return true;
   if(nome.indexOf('consumidor final')>-1)return true;
   return !nome&&!doc; // sem CPF/CNPJ e sem nome: à vista, mesmo lançamento do CPF
 }
@@ -2571,7 +2575,7 @@ $('#btAutoLanc').onclick=function(){
 function chave(n){return [n.cfop,n.numero,n.data,n.valor.toFixed(2)].join('|');}
 /* ============================== padrão de lançamento por CFOP ============================== */
 function lancN(l){return String(l==null?'':l).trim().replace(/\.0$/,'').replace(/^0+(?=\d)/,'');}
-function ehCpf(doc){return String(doc||'').replace(/\D/g,'').length===11;}
+function ehCpf(doc){return /^\d{11}$/.test(docLimpo(doc));}
 function chaveNaturezaNota(n,tipoPadrao){
   var tipo=tipoDoCfop(n.cfop)||n.tipo||tipoPadrao;
   var desc=CFOP_DESC[n.cfop]||n.desc||'';
@@ -2585,11 +2589,16 @@ function lancEsperadoSaida(n,ctx){
   var k=chaveNaturezaNota(n,'Saída'),l=ctx.lancs[k]||ctx.maior[k];
   return l?{lanc:l,origem:'vista'}:null;
 }
+function lancVistaDaNota(n,ctx){
+  if(!ctx||!ehCfopVenda(n))return null;
+  var k=chaveNaturezaNota(n,'Saída');return ctx.lancs[k]||ctx.maior[k]||null;
+}
 function padraoPorCfop(tipo){
   var g={},ctx=tipo==='saidas'?ctxVista():null;
   emp()[tipo].forEach(function(n){
     if(!n.cfop||!n.lanc)return;
     if(lancEsperadoSaida(n,ctx))return; // venda à vista: conferida à parte
+    var lv=lancVistaDaNota(n,ctx);if(lv&&lancN(n.lanc)===lancN(lv))return; // CNPJ com lançamento à vista não vira padrão
     if(!g[n.cfop])g[n.cfop]={};
     g[n.cfop][n.lanc]=(g[n.cfop][n.lanc]||0)+1;
   });
@@ -2610,7 +2619,8 @@ function acharDivergencias(tipo){
     if(!n.cfop||!n.lanc)return;
     var esp=lancEsperadoSaida(n,ctx);
     if(esp){if(lancN(n.lanc)!==lancN(esp.lanc))out.push({nota:n,chave:chave(n),padrao:esp.lanc,origem:esp.origem});return;}
-    var d=dom[n.cfop];
+    var d=dom[n.cfop],lv=lancVistaDaNota(n,ctx);
+    if(lv&&lancN(n.lanc)===lancN(lv)){out.push({nota:n,chave:chave(n),padrao:d&&d.lanc||'—',origem:'cnpjVista'});return;}
     if(!d||d.total<3)return;
     if(n.lanc!==d.lanc&&d.qtd/d.total>=0.6)out.push({nota:n,chave:chave(n),padrao:d.lanc,qtdPadrao:d.qtd,totalCfop:d.total});
   });
@@ -2969,7 +2979,7 @@ function renderDivergencias(tipo){
         return '<li style="display:flex;align-items:center;gap:10px;padding:7px 0;border-top:1px solid var(--border);font-size:13.5px;flex-wrap:wrap;">'+
           '<input type="checkbox" data-resolve="'+tipo+'|'+esc(d.chave)+'" data-hist-texto="'+esc('Nota '+n.numero+' · '+n.nome+' · CFOP '+n.cfop+' · lanç. '+n.lanc)+'"'+(marcado?' checked':'')+' aria-label="Marcar como corrigido">'+
           '<span style="flex:1 1 260px;min-width:0;">'+esc(n.data)+' · nota '+esc(n.numero)+' · '+esc(n.nome)+' · CFOP '+esc(n.cfop)+'</span>'+
-          '<span class="hint" style="white-space:nowrap">lanç. <b style="color:var(--ink)">'+esc(n.lanc)+'</b> — '+(d.origem==='vista'?'venda à vista — padrão':'padrão do CFOP')+': <b style="color:var(--ink)">'+esc(d.padrao)+'</b></span>'+
+          '<span class="hint" style="white-space:nowrap">lanç. <b style="color:var(--ink)">'+esc(n.lanc)+'</b> — '+(d.origem==='vista'?'venda à vista — padrão':d.origem==='cnpjVista'?'à vista, mas a nota tem CNPJ — padrão do CFOP':'padrão do CFOP')+': <b style="color:var(--ink)">'+esc(d.padrao)+'</b></span>'+
           '<span class="num" style="width:90px;text-align:right">'+brl(n.valor)+'</span>'+
         '</li>';
       }).join('')+
