@@ -1328,7 +1328,7 @@
 (function(){
 "use strict";
 
-var APP_VERSION='beta 0.1.62';
+var APP_VERSION='beta 0.1.63';
 document.querySelectorAll('#verLogin,#verApp,#verDrawer').forEach(function(el){el.textContent='Versão: '+APP_VERSION;});
 
 /* ============================== ícones ============================== */
@@ -1542,6 +1542,13 @@ function acha(rows,ch){
     if(ch.every(function(k){return low.some(function(c){return c.indexOf(k)>-1;});}))return i;
   }return -1;
 }
+// "Exportado" vem como "Sim"/"Não" (entradas/saídas) ou letra única "S"/"N" (serviços) — padroniza pros dois
+function normExportado(v){
+  var s=nomeNorm(v);
+  if(s==='sim'||s==='s')return 'Sim';
+  if(s==='nao'||s==='n')return 'Não';
+  return '';
+}
 function col(head){
   var t=[].slice.call(arguments,1);
   var low=head.map(function(c){return String(c).trim().toLowerCase();});
@@ -1561,7 +1568,7 @@ function lerNotas(rows){
   var c={cfop:col(head,'cfop'),lanc:col(head,'lanc'),val:col(head,'valor contábil','valor contabil','valor'),
     num:col(head,'número','numero'),nome:col(head,'nome forn','forn/cliente','nome'),
     dt:col(head,'dt. escritura','data'),desc:col(head,'descrição do cfop','descricao do cfop'),
-    doc:col(head,'cnpj/cpf','cpf/cnpj','cnpj','cpf'),exp:col(head,'exportado')};
+    doc:col(head,'cnpj/cpf','cpf/cnpj','cnpj','cpf'),exp:col(head,'exportado','exp.')};
   if(c.cfop<0||c.val<0)throw new Error('Faltou coluna de CFOP ou de valor.');
   var out=[];
   for(var i=h+1;i<rows.length;i++){
@@ -1572,7 +1579,7 @@ function lerNotas(rows){
     out.push({cfop:cf.slice(0,4),lanc:String(r[c.lanc]||'').trim().replace(/\.0$/,''),valor:v,
       numero:String(r[c.num]||'').trim(),nome:String(r[c.nome]||'').trim(),data:data,
       desc:c.desc>=0?String(r[c.desc]||'').trim():'',doc:c.doc>=0?String(r[c.doc]||'').trim():'',
-      exportado:c.exp>=0?String(r[c.exp]||'').trim():'',comp:comp(data)});
+      exportado:c.exp>=0?normExportado(r[c.exp]):'',comp:comp(data)});
   }return out;
 }
 function classificarGrupo(nome){
@@ -4279,7 +4286,8 @@ function lerServicos(rows,tipo){
   var acha=function(){var ks=[].slice.call(arguments);for(var j=0;j<ks.length;j++){for(var x=0;x<head.length;x++){if(head[x].indexOf(ks[j])>-1)return x;}}return -1;};
   var c={data:acha('data'),lanc:acha('lanc'),num:acha('nr.','número','numero'),cod:acha('conta cont','cód','cod.'),
     cnpj:acha('cnpj'),nome:acha('nome'),valor:acha('valor base','valor do documento'),
-    iss:head.indexOf('iss valor'),issRet:acha('iss valor retido','iss retido'),irrf:acha('irrf'),inss:acha('inss'),canc:acha('cancel')};
+    iss:head.indexOf('iss valor'),issRet:acha('iss valor retido','iss retido'),irrf:acha('irrf'),inss:acha('inss'),canc:acha('cancel'),
+    exp:acha('exportado','exp.')};
   if(c.valor<0||c.nome<0)throw new Error('Faltou a coluna de valor (Valor Base) ou de nome do participante.');
   var out=[],canceladas=0;
   for(var i2=h+1;i2<rows.length;i2++){
@@ -4294,6 +4302,7 @@ function lerServicos(rows,tipo){
     if(c.issRet>=0)n.issRet=num(r[c.issRet])||0;
     if(c.irrf>=0)n.irrf=num(r[c.irrf])||0;
     if(c.inss>=0)n.inss=num(r[c.inss])||0;
+    if(c.exp>=0)n.exportado=normExportado(r[c.exp]);
     out.push(n);
   }
   return {notas:out,canceladas:canceladas};
@@ -4328,8 +4337,9 @@ function importarServ(tipo){
         atuais.forEach(function(n){por[chaveServ(n)]=n;});
         novas.forEach(function(n){
           var k=chaveServ(n),ex=por[k];
-          if(!ex){atuais.push(n);por[k]=n;add++;}
-          else if(ex.lanc!==n.lanc||ex.codPart!==n.codPart||ex.iss!==n.iss){ex.lanc=n.lanc;ex.codPart=n.codPart;ex.iss=n.iss;ex.issRet=n.issRet;atualizadas++;}
+          if(!ex){atuais.push(n);por[k]=n;add++;return;}
+          if(ex.lanc!==n.lanc||ex.codPart!==n.codPart||ex.iss!==n.iss){ex.lanc=n.lanc;ex.codPart=n.codPart;ex.iss=n.iss;ex.issRet=n.issRet;atualizadas++;}
+          if(n.exportado&&ex.exportado!==n.exportado)ex.exportado=n.exportado;
         });
       }
       atuais.sort(function(a,b){return dataOrdem(a.data)-dataOrdem(b.data);});
