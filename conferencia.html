@@ -800,6 +800,9 @@
   input[type="text"].vista-inp{width:88px;min-height:0;height:24px;padding:2px 9px;font-size:12px;font-variant-numeric:tabular-nums;}
   .vista-info{font-size:12px;color:var(--ink-muted);}
   .vc-pend.vc-icms{margin-top:16px;}
+  .vc-exp-sim{color:var(--ink-muted);}
+  .vc-exp-nao{color:var(--warn);font-weight:600;}
+  .vc-exp-sem{color:var(--ink-muted);}
   .grupo-tag{display:inline-block;min-width:62px;padding:1px 8px;border-radius:2em;font-size:11px;font-weight:600;line-height:16px;text-align:center;vertical-align:1px;}
   .grupo-tag:empty{padding:0;}
   .grupo-tag.g-a,.grupo-tag.g-p,.grupo-tag.g-d,.grupo-tag.g-r{color:var(--ink-muted);background:var(--hover-bg);}
@@ -1325,7 +1328,7 @@
 (function(){
 "use strict";
 
-var APP_VERSION='beta 0.1.61';
+var APP_VERSION='beta 0.1.62';
 document.querySelectorAll('#verLogin,#verApp,#verDrawer').forEach(function(el){el.textContent='Versão: '+APP_VERSION;});
 
 /* ============================== ícones ============================== */
@@ -1558,7 +1561,7 @@ function lerNotas(rows){
   var c={cfop:col(head,'cfop'),lanc:col(head,'lanc'),val:col(head,'valor contábil','valor contabil','valor'),
     num:col(head,'número','numero'),nome:col(head,'nome forn','forn/cliente','nome'),
     dt:col(head,'dt. escritura','data'),desc:col(head,'descrição do cfop','descricao do cfop'),
-    doc:col(head,'cnpj/cpf','cpf/cnpj','cnpj','cpf')};
+    doc:col(head,'cnpj/cpf','cpf/cnpj','cnpj','cpf'),exp:col(head,'exportado')};
   if(c.cfop<0||c.val<0)throw new Error('Faltou coluna de CFOP ou de valor.');
   var out=[];
   for(var i=h+1;i<rows.length;i++){
@@ -1568,7 +1571,8 @@ function lerNotas(rows){
     var data=String(r[c.dt]||'').trim();
     out.push({cfop:cf.slice(0,4),lanc:String(r[c.lanc]||'').trim().replace(/\.0$/,''),valor:v,
       numero:String(r[c.num]||'').trim(),nome:String(r[c.nome]||'').trim(),data:data,
-      desc:c.desc>=0?String(r[c.desc]||'').trim():'',doc:c.doc>=0?String(r[c.doc]||'').trim():'',comp:comp(data)});
+      desc:c.desc>=0?String(r[c.desc]||'').trim():'',doc:c.doc>=0?String(r[c.doc]||'').trim():'',
+      exportado:c.exp>=0?String(r[c.exp]||'').trim():'',comp:comp(data)});
   }return out;
 }
 function classificarGrupo(nome){
@@ -2876,6 +2880,7 @@ function importar(tipo){
         var k=chave(n),ex=porChave[k];
         if(!ex){atuais.push(n);porChave[k]=n;add++;return;}
         if(n.doc&&ex.doc!==n.doc)ex.doc=n.doc;
+        if(n.exportado&&ex.exportado!==n.exportado)ex.exportado=n.exportado;
         if(ex.lanc!==n.lanc||ex.nome!==n.nome||ex.desc!==n.desc){
           ex.lanc=n.lanc;ex.nome=n.nome;ex.desc=n.desc;atualizadas++;
         }
@@ -3790,7 +3795,15 @@ function vcLinhasDuplicadas(r){
   return out;
 }
 function vcLinhasFaltando(r){
-  return r.faltando.map(function(n){return {data:n.data,nota:n.numero,part:n.nome,contra:'',valor:n.valor};});
+  return r.faltando.map(function(n){return {data:n.data,nota:n.numero,part:n.nome,contra:'',valor:n.valor,cfop:n.cfop||'',exportado:n.exportado||''};});
+}
+function vcTabelaFaltando(linhas){
+  var exp=function(v){var s=nomeNorm(v);return s==='sim'?'<span class="vc-exp-sim">Sim</span>':s==='nao'?'<span class="vc-exp-nao">Não</span>':'<span class="vc-exp-sem">—</span>';};
+  return '<div class="table-wrap"><table class="vc-tabela"><thead><tr><th>Data</th><th>Nota</th><th>Participante</th><th>CFOP</th><th>Exportado</th><th class="num">Valor</th></tr></thead><tbody>'+
+    linhas.slice(0,VC_LIMITE_LINHAS).map(function(l){
+      return '<tr class="bad"><td class="vc-nw">'+esc(l.data)+'</td><td class="vc-nw">'+esc(l.nota||'—')+'</td>'+
+        '<td class="vc-nome">'+esc(l.part||'—')+'</td><td class="vc-nw">'+esc(l.cfop||'—')+'</td><td class="vc-nw">'+exp(l.exportado)+'</td><td class="num">'+brl(l.valor)+'</td></tr>';
+    }).join('')+'</tbody></table></div>'+vcAvisoTruncado(linhas.length);
 }
 function vcTabela(linhas,cls){
   return '<div class="table-wrap"><table class="vc-tabela"><thead><tr><th>Data</th><th>Nota</th><th>Participante</th><th>Contrapartida</th><th class="num">Valor</th></tr></thead><tbody>'+
@@ -4172,7 +4185,7 @@ function vcRenderResultado(){
         '<button type="button" class="btn btn-sm btn-outline" data-vc-conferido title="Seguir com essas pendências e marcar a conta como conferida">Marcar como conferido</button>')+
     '</div>'+
     (r.faltando.length?secao('Faltando na conta ('+r.faltando.length+')',somaFaltando,
-      vcTabela(vcLinhasFaltando(r))):'')+
+      vcTabelaFaltando(vcLinhasFaltando(r))):'')+
     (r.duplicada.length?secao('Duplicadas na conta ('+r.duplicada.length+')',somaDuplicada,
       vcTabela(vcLinhasDuplicadas(r))):'')+
     (r.aMais.length?secao('A mais na conta ('+r.aMais.length+')',somaAMais,
