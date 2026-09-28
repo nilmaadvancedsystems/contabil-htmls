@@ -1325,7 +1325,7 @@
 (function(){
 "use strict";
 
-var APP_VERSION='beta 0.1.60';
+var APP_VERSION='beta 0.1.61';
 document.querySelectorAll('#verLogin,#verApp,#verDrawer').forEach(function(el){el.textContent='Versão: '+APP_VERSION;});
 
 /* ============================== ícones ============================== */
@@ -3871,7 +3871,7 @@ function vcFaltando(){
   var f=[];
   if(!vc.contas.length)f.push('Importar o balancete em Importação › Balancete');
   if(!vc.conta)f.push('Escolher qual conta você quer conferir');
-  if(vcMulti())vc.grupo.forEach(function(a){if(!vc.razaoPorConta[a.codigo])f.push('Importar o relatório da conta '+a.codigo);});
+  if(vcMulti()){if(!vc.grupo.some(function(a){return vc.razaoPorConta[a.codigo];}))f.push('Importar o relatório de pelo menos uma das contas');}
   else if(!vc.razaoLinhas.length)f.push('Importar o relatório da conta contábil');
   if(vc.servTipo){if(!vcNotasServ().length)f.push('Nenhuma nota de '+SV[vc.servTipo].rotulo.toLowerCase()+' ligada a essa conta');}
   else if(!vc.cfopGrupo)f.push('Escolher o CFOP referente a essa conta');
@@ -4053,9 +4053,13 @@ $('#vcBtConferir').onclick=function(){
         fonte=SV[vc.servTipo].rotulo+(cats.length?' · '+cats.join(', '):'');
       }else fonte='CFOP '+gr.cfops.slice().sort(function(a,b){return a.localeCompare(b,undefined,{numeric:true});}).join(', ')+(gr.desc?' — '+gr.desc:'');
       var multi=vcMulti(),rotulo=vcRotuloContas();
+      var comRel=multi?vc.grupo.filter(function(a){return vc.razaoPorConta[a.codigo];}):[];
+      var contaRes=!multi?{codigo:vc.conta.codigo,nome:vc.conta.nome}:
+        comRel.length===1?{codigo:comRel[0].codigo,nome:comRel[0].nome}:
+        {codigo:comRel.map(function(a){return a.codigo;}).join(' + '),nome:nomeComumContas(comRel.map(function(a){return a.nome;}))||rotulo.slice(rotulo.indexOf(' — ')+3)};
       vc.resultado={faltando:faltando,duplicada:duplicada,aMais:aMais,somaRazao:somaRazao,somaSemIcms:somaSemIcms,icmsSub:icmsSub,icms:icmsLinhas,somaFiscal:somaFiscal,alvo:alvo,serv:vc.servTipo,
-        conta:multi?{codigo:vcCodigos().join(' + '),nome:rotulo.slice(rotulo.indexOf(' — ')+3)}:{codigo:vc.conta.codigo,nome:vc.conta.nome},
-        contas:multi?vc.grupo.map(function(a){return {codigo:a.codigo,nome:a.nome};}):null,fonte:fonte};
+        conta:contaRes,
+        contas:comRel.length>1?comRel.map(function(a){return {codigo:a.codigo,nome:a.nome};}):null,fonte:fonte};
       vc.abaRes='todas';
       var rotConta=(multi?'Contas ':'Conta ')+rotulo;
       vcCodigos().forEach(function(cod){
